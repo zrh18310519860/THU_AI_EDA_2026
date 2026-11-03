@@ -1,0 +1,239 @@
+{
+  "task_name": "submission_AES",
+  "rtl_path": "/mnt/f/AI_EDA/github-submission/THU_AI_EDA_2026/submission/aes/generated.sv",
+  "passed": true,
+  "stage": "simulation",
+  "return_code": 0,
+  "stdout": "AI_EDA_TRACE|cycle=4|test=reset|event=ready|ok=1|detail=ready_high\nAI_EDA_TRACE|cycle=4|test=reset|event=done|ok=1|detail=done_low\nAI_EDA_TRACE|cycle=5|test=fips_c1|event=start|ok=1|detail=start_asserted\nAI_EDA_TRACE|cycle=116|test=fips_c1|event=done|ok=1|detail=ciphertext_ok\nAI_EDA_TRACE|cycle=117|test=fips_c1|event=done_pulse|ok=1|detail=done_one_cycle\nAI_EDA_TRACE|cycle=117|test=fips_c1|event=ready_after_done|ok=1|detail=ready_restored\nAI_EDA_TRACE|cycle=117|test=fips_c2|event=start|ok=1|detail=start_asserted\nAI_EDA_TRACE|cycle=228|test=fips_c2|event=done|ok=1|detail=ciphertext_ok\nAI_EDA_TRACE|cycle=229|test=fips_c2|event=done_pulse|ok=1|detail=done_one_cycle\nAI_EDA_TRACE|cycle=229|test=fips_c2|event=ready_after_done|ok=1|detail=ready_restored\nAI_EDA_TRACE|cycle=229|test=fips_b|event=start|ok=1|detail=start_asserted\nAI_EDA_TRACE|cycle=340|test=fips_b|event=done|ok=1|detail=ciphertext_ok\nAI_EDA_TRACE|cycle=341|test=fips_b|event=done_pulse|ok=1|detail=done_one_cycle\nAI_EDA_TRACE|cycle=341|test=fips_b|event=ready_after_done|ok=1|detail=ready_restored\nAI_EDA_TRACE|cycle=341|test=fips_c1_repeat|event=start|ok=1|detail=start_asserted\nAI_EDA_TRACE|cycle=452|test=fips_c1_repeat|event=done|ok=1|detail=ciphertext_ok\nAI_EDA_TRACE|cycle=453|test=fips_c1_repeat|event=done_pulse|ok=1|detail=done_one_cycle\nAI_EDA_TRACE|cycle=453|test=fips_c1_repeat|event=ready_after_done|ok=1|detail=ready_restored\nAI_EDA_TRACE|cycle=459|test=mid_reset|event=done_cleared|ok=1|detail=done_cleared\nAI_EDA_TRACE|cycle=459|test=mid_reset|event=ready_restored|ok=1|detail=ready_ok\nAI_EDA_TRACE|cycle=460|test=after_mid_reset|event=start|ok=1|detail=start_asserted\nAI_EDA_TRACE|cycle=571|test=after_mid_reset|event=done|ok=1|detail=ciphertext_ok\nAI_EDA_TRACE|cycle=572|test=after_mid_reset|event=done_pulse|ok=1|detail=done_one_cycle\nAI_EDA_TRACE|cycle=572|test=after_mid_reset|event=ready_after_done|ok=1|detail=ready_restored\nLAB_RESULT: PASS (5 vectors)\n",
+  "stderr": "",
+  "trace": [
+    {
+      "cycle": 4,
+      "test": "reset",
+      "event": "ready",
+      "ok": "1",
+      "detail": "ready_high"
+    },
+    {
+      "cycle": 4,
+      "test": "reset",
+      "event": "done",
+      "ok": "1",
+      "detail": "done_low"
+    },
+    {
+      "cycle": 5,
+      "test": "fips_c1",
+      "event": "start",
+      "ok": "1",
+      "detail": "start_asserted"
+    },
+    {
+      "cycle": 116,
+      "test": "fips_c1",
+      "event": "done",
+      "ok": "1",
+      "detail": "ciphertext_ok"
+    },
+    {
+      "cycle": 117,
+      "test": "fips_c1",
+      "event": "done_pulse",
+      "ok": "1",
+      "detail": "done_one_cycle"
+    },
+    {
+      "cycle": 117,
+      "test": "fips_c1",
+      "event": "ready_after_done",
+      "ok": "1",
+      "detail": "ready_restored"
+    },
+    {
+      "cycle": 117,
+      "test": "fips_c2",
+      "event": "start",
+      "ok": "1",
+      "detail": "start_asserted"
+    },
+    {
+      "cycle": 228,
+      "test": "fips_c2",
+      "event": "done",
+      "ok": "1",
+      "detail": "ciphertext_ok"
+    },
+    {
+      "cycle": 229,
+      "test": "fips_c2",
+      "event": "done_pulse",
+      "ok": "1",
+      "detail": "done_one_cycle"
+    },
+    {
+      "cycle": 229,
+      "test": "fips_c2",
+      "event": "ready_after_done",
+      "ok": "1",
+      "detail": "ready_restored"
+    },
+    {
+      "cycle": 229,
+      "test": "fips_b",
+      "event": "start",
+      "ok": "1",
+      "detail": "start_asserted"
+    },
+    {
+      "cycle": 340,
+      "test": "fips_b",
+      "event": "done",
+      "ok": "1",
+      "detail": "ciphertext_ok"
+    },
+    {
+      "cycle": 341,
+      "test": "fips_b",
+      "event": "done_pulse",
+      "ok": "1",
+      "detail": "done_one_cycle"
+    },
+    {
+      "cycle": 341,
+      "test": "fips_b",
+      "event": "ready_after_done",
+      "ok": "1",
+      "detail": "ready_restored"
+    },
+    {
+      "cycle": 341,
+      "test": "fips_c1_repeat",
+      "event": "start",
+      "ok": "1",
+      "detail": "start_asserted"
+    },
+    {
+      "cycle": 452,
+      "test": "fips_c1_repeat",
+      "event": "done",
+      "ok": "1",
+      "detail": "ciphertext_ok"
+    },
+    {
+      "cycle": 453,
+      "test": "fips_c1_repeat",
+      "event": "done_pulse",
+      "ok": "1",
+      "detail": "done_one_cycle"
+    },
+    {
+      "cycle": 453,
+      "test": "fips_c1_repeat",
+      "event": "ready_after_done",
+      "ok": "1",
+      "detail": "ready_restored"
+    },
+    {
+      "cycle": 459,
+      "test": "mid_reset",
+      "event": "done_cleared",
+      "ok": "1",
+      "detail": "done_cleared"
+    },
+    {
+      "cycle": 459,
+      "test": "mid_reset",
+      "event": "ready_restored",
+      "ok": "1",
+      "detail": "ready_ok"
+    },
+    {
+      "cycle": 460,
+      "test": "after_mid_reset",
+      "event": "start",
+      "ok": "1",
+      "detail": "start_asserted"
+    },
+    {
+      "cycle": 571,
+      "test": "after_mid_reset",
+      "event": "done",
+      "ok": "1",
+      "detail": "ciphertext_ok"
+    },
+    {
+      "cycle": 572,
+      "test": "after_mid_reset",
+      "event": "done_pulse",
+      "ok": "1",
+      "detail": "done_one_cycle"
+    },
+    {
+      "cycle": 572,
+      "test": "after_mid_reset",
+      "event": "ready_after_done",
+      "ok": "1",
+      "detail": "ready_restored"
+    }
+  ],
+  "checks": [],
+  "timings_ms": {
+    "functional_tb": 114.6,
+    "supplemental_tb": 1371.1,
+    "power_activity": 1170.7,
+    "synthesis_and_power": 7725.2
+  },
+  "teacher_passed": true,
+  "supplemental": {
+    "task_name": "submission_AES_supplemental",
+    "rtl_path": "/mnt/f/AI_EDA/github-submission/THU_AI_EDA_2026/submission/aes/generated.sv",
+    "passed": true,
+    "stage": "simulation",
+    "return_code": 0,
+    "stdout": "ORACLE_RESULT: PASS cases=100 max_latency=110\n",
+    "stderr": "",
+    "trace": [],
+    "checks": [],
+    "timings_ms": {
+      "functional_tb": 1226.5
+    },
+    "teacher_passed": true,
+    "functional_passed": true
+  },
+  "test_suites": [
+    {
+      "name": "supplemental_L3",
+      "passed": true,
+      "skipped": false
+    }
+  ],
+  "functional_passed": true,
+  "metrics": {
+    "status": "ok",
+    "library": "gscl45nm.lib",
+    "top_module": "aes128",
+    "area": 12164.7253,
+    "area_unit": "library area units (gscl45nm)",
+    "power_status": "ok",
+    "power_reason": null,
+    "power_method": "OpenSTA mapped-netlist estimate with RTL VCD",
+    "yosys_version": "Yosys 0.70+post (git sha1 0c11ea098be065e585a90a06e7b7da49936cf231, Release, GNU /usr/bin/c++ 11.4.0)",
+    "yosys_executable": "/home/eda/tools/yosys-0.70/install/bin/yosys",
+    "library_sha256": "57239da9a48b83255dced15b8b26a89139326b48baced9d7b82d2b5396fc5d36",
+    "clock_period_ns": 10,
+    "rtl_sha256": "3e74029e65f9e39c551ba6c6cb2c4e493b440823a610ce29d2d9737e860c3aba",
+    "memory_mapping_hotspots": [],
+    "area_by_module": {
+      "\\aes128": 12164.7253
+    },
+    "internal_power_w": 0.004315608181059,
+    "switching_power_w": 0.002003061585128,
+    "dynamic_power_w": 0.006318669766187,
+    "leakage_power_w": 5.598731149803e-05,
+    "total_power_w": 0.006374657154083,
+    "annotated_pin_activities": 389,
+    "power_limitations": "Pre-layout estimate without parasitics/CTS; RTL VCD annotates matching mapped pins only, other activity is propagated/defaulted.",
+    "vcd_scope": "tb_power_homework_aes128/dut"
+  },
+  "ppa_passed": true
+}

@@ -1,0 +1,37 @@
+{
+  "repository": "https://github.com/zrh18310519860/THU_AI_EDA_2026",
+  "implementation_commit": "81b6bb035c031341cca7f7fd9d39706fddaf382d",
+  "upstream_commit": "e25f015c0cde4a7c5f2c4c2b201d8c308947bca7",
+  "release_tag": "course-submission-20261103",
+  "report": "report/AI_EDA_Report.docx",
+  "report_sha256": "a4685b3ced23ba34584b53633b2ec0cd7caae2b774b6e5c48ffe3df878a0e028",
+  "report_visual_review": {"pages": 16, "all_pages_inspected": true, "result": "passed"},
+  "report_preservation": "Only word/document.xml changed; AES, body content and section geometry preserved",
+  "regression_tests": {"command": "python -m unittest discover -s verification -p test_*.py", "passed": 83},
+  "export_retest_command": "python -m verification.verify_submission --ppa",
+  "export_retest_path": "submission/retest/20261103T114958454544",
+  "aes": {
+    "run_id": "hw-20261027T152441661029",
+    "rtl_sha256": "3e74029e65f9e39c551ba6c6cb2c4e493b440823a610ce29d2d9737e860c3aba",
+    "functional_passed": true,
+    "ppa_passed": true,
+    "area": 12164.7253,
+    "total_power_w": 0.006374657154083
+  },
+  "l3": {
+    "run_id": "agent-20261103T081144962755",
+    "tester": "tester-17",
+    "generation_mode": "resumed",
+    "empty_project_origin": "agent-20261103T071100178309",
+    "rtl_sha256": "add207701a1b1c3355c5f1f8deaad2471b5b4afc22d974036ee590f64e7dbed5",
+    "functional_passed": true,
+    "ppa_passed": true,
+    "verified_level": 3,
+    "area": 324185.8698,
+    "total_power_w": 0.02383058145642,
+    "fresh_success_guaranteed": false,
+    "manual_rtl_seed_used": false
+  },
+  "teacher_files": "SHA-256 verified unchanged against completion/completion.json",
+  "credentials": "Excluded; working files and document XML scanned before publication"
+}
