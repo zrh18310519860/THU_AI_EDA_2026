@@ -1,0 +1,10 @@
+{
+  "run_id": "agent-20261103T101343868992",
+  "status": "failed",
+  "error": "Diagnoser failed validation after three calls: Missing CURRENT source evidence for edit paths: rtl/icache.sv",
+  "duration_ms": 583856,
+  "requests": 9,
+  "validation_retries": [],
+  "scope_refreshes": [],
+  "note": "The shared retry budget was exhausted after two incomplete JSON replies; no model-generated patch was accepted in this run."
+}

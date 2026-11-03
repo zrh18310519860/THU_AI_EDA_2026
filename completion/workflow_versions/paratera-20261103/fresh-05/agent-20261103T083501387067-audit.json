@@ -1,0 +1,229 @@
+{
+  "run_id": "agent-20261103T083501387067",
+  "generation_mode": "fresh",
+  "status": "failed",
+  "error": null,
+  "planned_files": 10,
+  "model_generated_files": 10,
+  "module_checks": [
+    {
+      "path": "rtl/icache.sv",
+      "origin": "model",
+      "step": 3,
+      "call_indices": [
+        5
+      ],
+      "revisions_verified": 1,
+      "sha256": "8b33d23f82a35cc94c26934e393cbfb806586eec05dce2eddc66d138a5d9e40e"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "origin": "model",
+      "step": 4,
+      "call_indices": [
+        6,
+        7
+      ],
+      "revisions_verified": 2,
+      "sha256": "1f60e96278abea5606b63ee2bc79f2e26beaecedecf9fcea6bc26d131367607c"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "origin": "model",
+      "step": 5,
+      "call_indices": [
+        8
+      ],
+      "revisions_verified": 1,
+      "sha256": "f16581e0df4bc0709673d8098e88c3ed5559cc347ade718da81c00b1e9b2c680"
+    },
+    {
+      "path": "rtl/rename_unit.sv",
+      "origin": "model",
+      "step": 6,
+      "call_indices": [
+        9
+      ],
+      "revisions_verified": 1,
+      "sha256": "67fac169995146c7eb6fd1a57a6c544100bdcc9ce7e2c6a45aa236b9e7ab1e19"
+    },
+    {
+      "path": "rtl/issue_queue.sv",
+      "origin": "model",
+      "step": 7,
+      "call_indices": [
+        10,
+        11,
+        12
+      ],
+      "revisions_verified": 3,
+      "sha256": "1056410979852b81e7d01b9b92a512a629435c6d99698e9c4f9cf9d10decf779"
+    },
+    {
+      "path": "rtl/reorder_buffer.sv",
+      "origin": "model",
+      "step": 8,
+      "call_indices": [
+        13
+      ],
+      "revisions_verified": 1,
+      "sha256": "39fcb94bc9cd6c0cddadc40b02eafc9d7917793ace8dba80350efecc0721b621"
+    },
+    {
+      "path": "rtl/load_store_unit.sv",
+      "origin": "model",
+      "step": 9,
+      "call_indices": [
+        14
+      ],
+      "revisions_verified": 1,
+      "sha256": "909b126751b873025d121e444153718c6c91f7e2b39793d61b58e03741c13aa2"
+    },
+    {
+      "path": "rtl/alu.sv",
+      "origin": "model",
+      "step": 10,
+      "call_indices": [
+        15,
+        16
+      ],
+      "revisions_verified": 2,
+      "sha256": "059b5a955b46292bfcf2e324c929c34354f98480758de3f8f8bf264625089948"
+    },
+    {
+      "path": "rtl/frontend.sv",
+      "origin": "model",
+      "step": 11,
+      "call_indices": [
+        17
+      ],
+      "revisions_verified": 1,
+      "sha256": "efa9c749600a396d8e42c10fa44c6c4adebfb2202e4bca8b91651d87d81d271c"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "origin": "model",
+      "step": 12,
+      "call_indices": [
+        18
+      ],
+      "revisions_verified": 1,
+      "sha256": "4df5dabe549ec59af6c8e4f944b52405ffa36f898ea91c9422f8de631618f8df"
+    }
+  ],
+  "accepted_patches_verified": 4,
+  "patch_checks": [
+    {
+      "step": 19,
+      "attempt": 1,
+      "changed_paths": [
+        "rtl/issue_queue.sv"
+      ],
+      "fingerprint": "c668bdeac634b1a8a37dabcc905fb1671dce5fa011b478cbcf1c7228a035167e",
+      "model_response": "step-19-modifier/call-030/raw_response.txt"
+    },
+    {
+      "step": 22,
+      "attempt": 2,
+      "changed_paths": [
+        "rtl/load_store_unit.sv"
+      ],
+      "fingerprint": "e296f0b342b62695957f28897142791e42f1c9e895aee948b5eae1b982bad218",
+      "model_response": "step-22-modifier/call-037/raw_response.txt"
+    },
+    {
+      "step": 25,
+      "attempt": 3,
+      "changed_paths": [
+        "rtl/rv32i5.sv"
+      ],
+      "fingerprint": "e8540a0b654d4e5b059cf004079a361fa90f73086b7419e4f2c5b9d938a0f3b9",
+      "model_response": "step-25-modifier/call-045/raw_response.txt"
+    },
+    {
+      "step": 28,
+      "attempt": 4,
+      "changed_paths": [
+        "rtl/rv32i5.sv"
+      ],
+      "fingerprint": "008f7c9d66d7909b3a35c14447a878d316168d37c2f296351550e28b8e8e3444",
+      "model_response": "step-28-modifier/call-048/raw_response.txt"
+    }
+  ],
+  "teacher_unchanged": true,
+  "run_summary": {
+    "model": "DeepSeek-V4.1-Flash-1017",
+    "base_url": "https://llmapi.paratera.com/v1",
+    "temperature": null,
+    "max_tokens": 32000,
+    "thinking": true,
+    "reasoning_effort": "low",
+    "max_calls": 250,
+    "max_repair_attempts": 50,
+    "planner_skill": false,
+    "optimization_rounds": 3,
+    "snapshot_attempt": null,
+    "l3_mode": "fresh",
+    "generation_mode": "fresh",
+    "resumed_from": null,
+    "model_calls": 48,
+    "usage_calls": 48,
+    "missing_usage_calls": 0,
+    "usage_complete": true,
+    "prompt_tokens": 1367111,
+    "completion_tokens": 86936,
+    "total_tokens": 1454047,
+    "duration_ms": 779128,
+    "duration_basis": "agent_wall_time",
+    "run_id": "agent-20261103T083501387067",
+    "status": "failed",
+    "model_parameter_sets": [
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": null,
+        "max_tokens": 32000,
+        "thinking": true,
+        "reasoning_effort": "low"
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 32000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 24000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.1,
+        "max_tokens": 8000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 16000,
+        "thinking": false,
+        "reasoning_effort": null
+      }
+    ],
+    "passed": false,
+    "stage": "simulation",
+    "area": null,
+    "total_power_w": null
+  },
+  "tester_attempts": 5,
+  "meaning": "Provenance audit is separate from functional pass. Failed explorations remain failed."
+}

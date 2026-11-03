@@ -30,3 +30,8 @@ build/
 .api_key
 tests/
 
+# Submission exports and Office temporary files
+~$*
+*.zip
+submission/retest/
+

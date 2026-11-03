@@ -1,0 +1,27 @@
+{
+  "nodes": 6,
+  "desktop": {
+    "width": 1560,
+    "bodyWidth": 1560
+  },
+  "mobile": {
+    "width": 430,
+    "bodyWidth": 430
+  },
+  "errors": [],
+  "run": "agent-20261103T081144962755",
+  "mode": "fresh",
+  "normalRunRequest": {
+    "thinking": true,
+    "temperature": 0.2,
+    "max_tokens": 32000,
+    "max_calls": 250,
+    "max_repair_attempts": 40,
+    "optimization_rounds": 3,
+    "l3_mode": "fresh",
+    "reasoning_effort": "low",
+    "planner_skill": false,
+    "resume_from": null,
+    "project_id": "rv32i5_ooo"
+  }
+}

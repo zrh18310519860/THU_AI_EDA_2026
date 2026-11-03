@@ -3,12 +3,36 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
+import json
+import os
 import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any
+
+
+def yosys_executable() -> str | None:
+    override = os.environ.get("AI_EDA_YOSYS")
+    if override:
+        return shutil.which(override)
+    pinned = Path("/home/eda/tools/yosys-0.70/install/bin/yosys")
+    return str(pinned) if pinned.is_file() else shutil.which("yosys")
+
+
+def mapping_hotspots(log: str) -> list[dict[str, Any]]:
+    """Expose actual memory-expansion cost, not thousands of optimizer messages."""
+    result = []
+    pattern = r"Mapping memory cell \\(\S+) in module \\(\S+):\s*(.*?)(?=Mapping memory cell|\n\d+\.|\Z)"
+    for memory, module, body in re.findall(pattern, log, re.DOTALL):
+        write = re.search(r"write interface: (\d+) write mux blocks", body)
+        read = re.search(r"read interface: \d+ \$dff and (\d+) \$mux cells", body)
+        if write:
+            result.append({"module": module, "memory": memory,
+                "write_mux_blocks": int(write[1]), "read_mux_cells": int(read[1]) if read else None})
+    return sorted(result, key=lambda item: item["write_mux_blocks"], reverse=True)[:8]
 
 
 def _top_module(rtl_path: Path) -> str:
@@ -48,6 +72,8 @@ def _sta_safe_netlist(netlist_path: Path) -> Path:
 
     def replace_identifier(match: re.Match[str]) -> str:
         token = match.group(0)
+        if not any(char in token for char in ("/", ":")):
+            return token
         if token not in rename:
             rename[token] = f"\\esc_{len(rename)} "
         return rename[token]
@@ -56,6 +82,7 @@ def _sta_safe_netlist(netlist_path: Path) -> Path:
     text = re.sub(r"\b(wire|reg)\s+signed\b", r"\1", text)
     safe_path = netlist_path.with_name("mapped_sta.v")
     safe_path.write_text(text, encoding="utf-8")
+    netlist_path.with_name("sta_identifier_map.json").write_text(json.dumps(rename, indent=2), encoding="utf-8")
     return safe_path
 
 
@@ -68,7 +95,7 @@ def _mapped_netlist(rtl_path: Path, library_path: Path, top_module: str, work_di
             (
                 f'read_verilog -sv "{rtl_path.resolve()}"',
                 f"hierarchy -check -top {top_module}",
-                "proc; opt; fsm; opt; memory; opt",
+                "proc; opt; check -assert; fsm; opt; memory; opt",
                 "techmap; opt",
                 f'dfflibmap -liberty "{library_path}"',
                 f'abc -liberty "{library_path}"',
@@ -79,8 +106,15 @@ def _mapped_netlist(rtl_path: Path, library_path: Path, top_module: str, work_di
         + "\n",
         encoding="utf-8",
     )
-    result = subprocess.run(["yosys", "-s", str(script_path)], text=True, capture_output=True, check=False)
-    output = result.stdout + result.stderr
+    log_path = work_dir / "yosys.log"
+    try:
+        with log_path.open("w", encoding="utf-8") as log:
+            result = subprocess.run([yosys_executable(), "-s", str(script_path)], text=True,
+                stdout=log, stderr=subprocess.STDOUT, check=False, timeout=900)
+    except subprocess.TimeoutExpired as error:
+        tail = log_path.read_text(encoding="utf-8", errors="replace")[-4000:]
+        raise RuntimeError("Yosys synthesis timeout (900 s). Last tool output:\n" + tail) from error
+    output = log_path.read_text(encoding="utf-8", errors="replace")
     # `stat -liberty` 会先打印每个模块的 local area，再打印 design hierarchy 的
     # top area。多模块项目必须先匹配 "top module"，否则会把顶层 wrapper 的
     # local area=0 当成整个设计的面积。
@@ -120,6 +154,7 @@ def synthesize_metrics(
     vcd_path: Path | None = None,
     vcd_scope: str | None = None,
     top_module: str | None = None,
+    artifact_dir: Path | None = None,
 ) -> dict[str, Any]:
     """评估映射面积，并在有 OpenROAD 和 VCD 时估算活动相关功耗。
 
@@ -127,7 +162,7 @@ def synthesize_metrics(
     门级网表、Liberty、SDC 与 VCD 后以瓦特报告。没有 LEF/DEF
     或 SPEF 时，这是前布局、无寄生参数的估算，而不是签核结果。
     """
-    if shutil.which("yosys") is None:
+    if yosys_executable() is None:
         return {"status": "unavailable", "reason": "未找到 yosys；无法生成门级网表。"}
     library_path = _library_path()
     if library_path is None:
@@ -139,11 +174,14 @@ def synthesize_metrics(
         raise ValueError("RTL 顶层模块名无效")
     top_module = top_module or _top_module(rtl_path)
     with tempfile.TemporaryDirectory(prefix="ai_eda_metrics_") as temp_dir:
-        work_dir = Path(temp_dir)
+        work_dir = artifact_dir or Path(temp_dir)
+        work_dir.mkdir(parents=True, exist_ok=True)
         try:
             netlist_path, area = _mapped_netlist(rtl_path, library_path, top_module, work_dir)
-        except RuntimeError as error:
-            return {"status": "failed", "reason": str(error)}
+        except (RuntimeError, subprocess.TimeoutExpired) as error:
+            log = work_dir / "yosys.log"
+            return {"status": "failed", "reason": str(error),
+                "memory_mapping_hotspots": mapping_hotspots(log.read_text(encoding="utf-8", errors="replace")) if log.exists() else []}
 
         metrics: dict[str, Any] = {
             "status": "area_only",
@@ -153,7 +191,18 @@ def synthesize_metrics(
             "area_unit": "library area units (gscl45nm)",
             "power_status": "unavailable",
             "power_reason": "需要 OpenSTA、VCD 活动文件与时钟约束。",
-            "power_method": "OpenSTA gate-level VCD estimate",
+            "power_method": "OpenSTA mapped-netlist estimate with RTL VCD",
+            "yosys_version": subprocess.run([yosys_executable(), "-V"], capture_output=True, text=True, timeout=10).stdout.strip(),
+            "yosys_executable": yosys_executable(),
+            "library_sha256": hashlib.sha256(library_path.read_bytes()).hexdigest(),
+            "clock_period_ns": 10,
+            "rtl_sha256": hashlib.sha256(rtl_path.read_bytes()).hexdigest(),
+        }
+        synth_log = (work_dir / "yosys.log").read_text(encoding="utf-8")
+        metrics["memory_mapping_hotspots"] = mapping_hotspots(synth_log)
+        metrics["area_by_module"] = {
+            name: float(value) for name, value in re.findall(
+                r"Chip area for module '([^']+)':\s*([0-9.]+)", synth_log)
         }
         sta = _sta_executable()
         if sta is None:
@@ -175,14 +224,19 @@ def synthesize_metrics(
                     f"link_design {top_module}",
                     f'read_sdc "{sdc_path}"',
                     f'read_vcd -scope {vcd_scope} "{vcd_path.resolve()}"',
-                    "report_power",
+                    "report_power -digits 12",
                 )
             )
             + "\n",
             encoding="utf-8",
         )
-        result = subprocess.run([sta, "-exit", str(script_path)], text=True, capture_output=True, check=False)
+        try:
+            result = subprocess.run([sta, "-exit", str(script_path)], text=True, capture_output=True, check=False, timeout=180)
+        except subprocess.TimeoutExpired:
+            metrics.update(power_status="failed", power_reason="OpenSTA timeout (180 s)")
+            return metrics
         output = result.stdout + result.stderr
+        (work_dir / "opensta.log").write_text(output, encoding="utf-8")
         power = _parse_power_report(output)
         if result.returncode != 0 or power is None:
             metrics.update({
@@ -192,6 +246,9 @@ def synthesize_metrics(
             })
             return metrics
         metrics.update(power)
+        annotation = re.search(r"Annotated (\d+) pin activities", output)
+        metrics["annotated_pin_activities"] = int(annotation[1]) if annotation else None
+        metrics["power_limitations"] = "Pre-layout estimate without parasitics/CTS; RTL VCD annotates matching mapped pins only, other activity is propagated/defaulted."
         metrics.update({"status": "ok", "power_status": "ok", "power_reason": None, "vcd_scope": vcd_scope})
         return metrics
 

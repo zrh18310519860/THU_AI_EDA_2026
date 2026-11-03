@@ -1013,6 +1013,14 @@ kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4p
 .compare-table th:last-child, .compare-table td:last-child { text-align: center; }
 
 /* Local API key control */
+.run-metadata-wrap { padding: 10px 14px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; font-size: 11px; }
+.run-metadata { display: grid; grid-template-columns: minmax(105px, 150px) minmax(0, 1fr); gap: 5px 12px; margin: 0; }
+.run-metadata dt { color: var(--dim); }
+.run-metadata dd { margin: 0; white-space: normal; }
+.compare-table .compare-parameters { white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.compare-table .compare-usage, .compare-table th { white-space: normal; overflow-wrap: anywhere; }
+.compare-table { min-width: 1080px; }
+.run-open-button span { white-space: normal; overflow-wrap: anywhere; }
 .api-key-form { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .api-key-chip { min-width: 132px; }
 .api-key-form input {

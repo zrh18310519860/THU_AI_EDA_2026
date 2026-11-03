@@ -44,6 +44,17 @@ REQUIRED_CAPABILITY_SIGNALS = (
 )
 
 
+EXTERNAL_MEMORY_PROTOCOL = (
+    "External memory uses a same-cycle read response: a request is accepted only "
+    "on a rising edge where mem_req_valid && mem_req_ready is true, and the "
+    "returned mem_resp_data is sampled on that same edge. The top-level bridge "
+    "must drive mem_resp_valid as the gated acceptance pulse "
+    "(mem_req_valid && mem_req_ready), not add a registered response cycle. "
+    "The cache-to-CPU response remains a separate registered one-cycle pulse. "
+    "When mem_req_ready is low, every request payload bit remains stable."
+)
+
+
 @dataclass(frozen=True)
 class FocusStage:
     """A repair/generation focus and the files most relevant to it.
@@ -140,6 +151,7 @@ _COMMON_ADVANCED_ASSUMPTIONS = (
     "dbg_features is the fixed tier value from time zero.",
     "Internal port names, FSM encodings, and helper-file layout are planner-owned choices, "
     "not questions for the user, provided the externally visible contract is preserved.",
+    EXTERNAL_MEMORY_PROTOCOL,
 )
 
 
@@ -400,16 +412,15 @@ def describe_tier_context(project_id: str | None, *, role: str = "planner") -> s
             lines.append(
                 f"- {focus.name}: {focus.objective} Files: {', '.join(focus.modules)}."
             )
-        policy = contract.seed_eligibility
-        reference = (
-            f"; fallback={policy.builtin_reference_id}"
-            if policy.builtin_reference_id
-            else ""
-        )
-        lines.append(
-            "- Seed policy: require a passed, verified "
-            f"L{policy.source_expected_level} run of {policy.source_project_id}{reference}."
-        )
+        if contract.project_id == "rv32i5_ooo":
+            lines.append("- Fresh generation: start with an empty RTL project. Implement lower-tier ISA, "
+                         "cache and prediction behavior from this self-contained spec too; no passed "
+                         "L2 seed, built-in RTL, old run, or reference implementation is available.")
+        else:
+            policy = contract.seed_eligibility
+            reference = f"; fallback={policy.builtin_reference_id}" if policy.builtin_reference_id else ""
+            lines.append("- Seed policy: require a passed, verified "
+                         f"L{policy.source_expected_level} run of {policy.source_project_id}{reference}.")
     else:
         lines.append(
             "- Preserve the stated module/file contract and all passed lower-tier behavior; "

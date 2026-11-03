@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from typing import Any
 from ai_eda.config import PROJECT_ROOT, PROMPT_RUNS_ROOT, TASKS_ROOT
 from ai_eda.model.client import DEFAULT_SYSTEM_PROMPT, ModelClient
 from ai_eda.rtl.metrics import synthesize_metrics
+from ai_eda.run_records import CLOCK_SESSION_ID, prompt_summary, timed_verification, save_prompt_summary
 
 RUNS_ROOT = PROMPT_RUNS_ROOT
 
@@ -193,6 +195,7 @@ def _write_run_artifacts(
     (run_dir / "metadata.json").write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+    save_prompt_summary(run_dir)
     return run_dir
 
 
@@ -223,8 +226,15 @@ def create_run(
         thinking=thinking,
         reasoning_effort=reasoning_effort,
     )
-    model_response = client.generate_once_detail(prompt, system_prompt or DEFAULT_SYSTEM_PROMPT)
-    return _write_run_artifacts(
+    started_at = datetime.now(timezone.utc).isoformat()
+    started = time.perf_counter()
+    generation_error = None
+    try:
+        model_response = client.generate_once_detail(prompt, system_prompt or DEFAULT_SYSTEM_PROMPT)
+    except Exception as error:
+        generation_error = error
+        model_response = {"answer": "", "reasoning": None}
+    run_dir = _write_run_artifacts(
         task_name=task_name,
         spec_path=spec_path,
         testbench_path=testbench_path,
@@ -240,8 +250,22 @@ def create_run(
         reasoning_effort=reasoning_effort,
         timeout_seconds=timeout_seconds,
         generation_mode="single_call_no_feedback",
-        extra_metadata={"finish_reason": model_response.get("finish_reason")},
+        extra_metadata={
+            "finish_reason": model_response.get("finish_reason"),
+            "usage": model_response.get("usage"),
+            "model_calls": client.request_records,
+            "generation_started_at": started_at,
+            "generation_clock_session": CLOCK_SESSION_ID,
+            "generation_started_counter": started,
+            "generation_finished_at": datetime.now(timezone.utc).isoformat(),
+            "generation_duration_ms": round((time.perf_counter() - started) * 1000, 1),
+            "generation_status": "failed" if generation_error else "completed",
+            "error": str(generation_error) if generation_error else None,
+        },
     )
+    if generation_error:
+        raise generation_error
+    return run_dir
 
 
 def save_generation_run(
@@ -261,6 +285,7 @@ def save_generation_run(
     timeout_seconds: int = 20,
     finish_reason: str | None = None,
     usage: dict[str, Any] | None = None,
+    generation_metadata: dict[str, Any] | None = None,
 ) -> Path:
     """保存一次已经完成的流式模型生成；不自动运行教师 TB。
 
@@ -289,6 +314,7 @@ def save_generation_run(
             "finish_reason": finish_reason,
             "usage": usage,
             "tested": False,
+            **(generation_metadata or {}),
         },
     )
 
@@ -305,6 +331,9 @@ def test_rtl(
     run_dir: Path | None = None,
     expected_cpu_level: int | None = None,
     rtl_top_module: str | None = None,
+    extra_testbench_path: Path | None = None,
+    extra_testbench_top: str | None = None,
+    additional_include_paths: tuple[Path, ...] = (),
 ) -> dict[str, Any]:
     """用 Icarus Verilog 编译并运行一个 RTL 文件，返回结构化测试报告。"""
     testbench_path = _require_file(testbench_path, "测试平台文件")
@@ -328,9 +357,12 @@ def test_rtl(
         executable = temp_path / "simulation.vvp"
         vcd_path = run_dir / "activity.vcd" if run_dir is not None else None
         feature_flags = _cpu_feature_compile_flags(rtl_path)
+        tb_started = time.perf_counter()
         compile_result = subprocess.run(
             [
-                "iverilog", "-g2012", *feature_flags, "-I", str(testbench_path.parent), "-s", testbench_top, "-o", str(executable),
+                "iverilog", "-g2012", *feature_flags, "-I", str(testbench_path.parent),
+                *[arg for path in additional_include_paths for arg in ("-I", str(path))],
+                "-s", testbench_top, "-o", str(executable),
                 str(testbench_path), str(rtl_path),
             ],
             text=True,
@@ -352,7 +384,8 @@ def test_rtl(
                 "checks": checks,
             }
 
-        simulation_command = ["vvp", str(executable)]
+        # Unbuffered simulator output retains the last completed cycle on timeout.
+        simulation_command = ["vvp", "-i", str(executable)]
         if expected_cpu_level is not None:
             simulation_command.append(f"+expected_cpu_level={expected_cpu_level}")
         try:
@@ -376,8 +409,8 @@ def test_rtl(
                 "return_code": None,
                 "stdout": stdout,
                 "stderr": stderr,
-                "trace": [],
-                "checks": [{
+                "trace": parse_testbench_output(stdout)[0],
+                "checks": parse_testbench_output(stdout)[1] + [{
                     "name": "simulation_timeout",
                     "detail": f"教师 TB 仿真超过 {timeout_seconds} s，RTL 可能未停机、死循环或握手无法完成。",
                 }],
@@ -395,11 +428,34 @@ def test_rtl(
             "checks": checks,
         }
         report.update(parse_cpu_testbench_output(simulation_result.stdout))
+        report["timings_ms"] = {"functional_tb": round((time.perf_counter()-tb_started)*1000, 1)}
         if expected_cpu_level is not None:
             report.setdefault("cpu_capability", {})["expected_level"] = expected_cpu_level
+            verified = report["cpu_capability"].get("verified_level")
+            if verified != expected_cpu_level:
+                report["passed"] = False
+                report["checks"].append({"name": "verified_cpu_level", "detail": f"expected {expected_cpu_level}, verified {verified}"})
         if any(not suite["passed"] for suite in report.get("test_suites", []) if "passed" in suite and not suite.get("skipped")):
             report["passed"] = False
-        if run_dir is not None:
+        report["teacher_passed"] = report["passed"]
+        if report["passed"] and extra_testbench_path and extra_testbench_top:
+            extra_started = time.perf_counter()
+            extra = test_rtl(task_name=task_name+"_supplemental", testbench_path=extra_testbench_path,
+                testbench_top=extra_testbench_top, rtl_path=rtl_path, timeout_seconds=60,
+                additional_include_paths=(testbench_path.parent,))
+            report["supplemental"] = extra
+            if any(c.get("name") == "program" for c in extra.get("checks", [])):
+                report["tool_error"] = "Supplemental program exceeds assembler capacity; fix test configuration, not RTL."
+            report["timings_ms"]["supplemental_tb"] = round((time.perf_counter()-extra_started)*1000, 1)
+            report.setdefault("test_suites", []).append({"name": "supplemental_L3", "passed": extra["passed"], "skipped": False})
+            if not extra["passed"]:
+                report["passed"] = False
+                report["checks"].extend(extra.get("checks") or [{"name": "supplemental_L3", "detail": extra.get("stderr", "")[-2000:]}])
+                report["trace"].extend(extra.get("trace", []))
+        report["functional_passed"] = report["passed"]
+        if run_dir is not None and report["passed"]:
+            ppa_started = time.perf_counter()
+            power_error = None
             if power_testbench_path is not None and power_testbench_top is not None:
                 power_testbench_path = _require_file(power_testbench_path, "功耗测试平台文件")
                 power_executable = temp_path / "power_simulation.vvp"
@@ -408,16 +464,34 @@ def test_rtl(
                     text=True, capture_output=True, timeout=timeout_seconds, check=False,
                 )
                 if power_compile.returncode == 0:
-                    subprocess.run(
-                        ["vvp", str(power_executable), f"+vcd={vcd_path.resolve()}"],
-                        text=True, capture_output=True, timeout=timeout_seconds, check=False,
-                    )
+                    try:
+                        power_result = subprocess.run(
+                            ["vvp", str(power_executable), f"+vcd={vcd_path.resolve()}"],
+                            text=True, capture_output=True, timeout=timeout_seconds, check=False,
+                        )
+                        (run_dir / "power_simulation.log").write_text(power_result.stdout + power_result.stderr, encoding="utf-8")
+                        if power_result.returncode != 0:
+                            power_error = "Power simulation failed"
+                    except subprocess.TimeoutExpired:
+                        power_error = "Power simulation timeout"
+                else:
+                    power_error = power_compile.stderr[-4000:]
+            report["timings_ms"]["power_activity"] = round((time.perf_counter()-ppa_started)*1000, 1)
+            synth_started = time.perf_counter()
             report["metrics"] = synthesize_metrics(
                 rtl_path,
                 vcd_path=vcd_path,
                 vcd_scope=f"{power_testbench_top}/dut" if power_testbench_top else None,
                 top_module=rtl_top_module,
+                artifact_dir=run_dir / "ppa",
             )
+            report["timings_ms"]["synthesis_and_power"] = round((time.perf_counter()-synth_started)*1000, 1)
+            if power_error:
+                report["metrics"].update(status="area_only", power_status="failed", power_reason=power_error)
+            report["ppa_passed"] = report["metrics"].get("status") == "ok"
+        elif run_dir is not None:
+            report["metrics"] = {"status": "skipped", "reason": "Functional gate failed; no PPA score."}
+            report["ppa_passed"] = False
         return report
 
 
@@ -460,17 +534,15 @@ def run_prompt_experiment(
         timeout_seconds=timeout_seconds,
         system_prompt=system_prompt,
     )
-    report = test_rtl(
-        task_name=task_name,
-        testbench_path=testbench_path,
-        testbench_top=testbench_top,
-        rtl_path=run_dir / "generated.sv",
-        power_testbench_path=power_testbench_path,
-        power_testbench_top=power_testbench_top,
-        timeout_seconds=timeout_seconds,
-        run_dir=run_dir,
-    )
-    save_report(run_dir, report)
+    metadata_path = run_dir / "metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["power_testbench_path"] = str(power_testbench_path.resolve()) if power_testbench_path is not None else None
+    metadata["power_testbench_top"] = power_testbench_top
+    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # Save the TB time before beginning the independent PPA evaluation.
+    report = run_testbench(run_dir)
+    if report.get("passed"):
+        report = evaluate_metrics(run_dir)
     return run_dir, report
 
 
@@ -521,6 +593,7 @@ def _power_testbench(task_name: str) -> tuple[Path | None, str | None]:
     )
 
 
+@timed_verification("tb")
 def run_testbench(run_dir: Path) -> dict[str, Any]:
     """只运行功能教师 TB，并保留运行记录里已有的面积/功耗 metric。"""
     metadata = _load_run_metadata(run_dir)
@@ -540,12 +613,23 @@ def run_testbench(run_dir: Path) -> dict[str, Any]:
     return report
 
 
+@timed_verification("metrics")
 def evaluate_metrics(run_dir: Path) -> dict[str, Any]:
     """只运行功耗活动采样与 Yosys/OpenSTA 评估，并保留已有 TB 结果。"""
     metadata = _load_run_metadata(run_dir)
     rtl_path = _checked_rtl(run_dir, metadata)
+    previous = _read_report(run_dir)
+    if not previous.get("passed"):
+        previous["metrics"] = {"status": "skipped", "reason": "Run and pass the functional TB before PPA."}
+        save_report(run_dir, previous)
+        return previous
     timeout_seconds = int(metadata.get("timeout_seconds", 20))
-    power_testbench_path, power_testbench_top = _power_testbench(metadata["task_name"])
+    if "power_testbench_path" in metadata:
+        saved_power_path = metadata["power_testbench_path"]
+        power_testbench_path = Path(saved_power_path) if saved_power_path else None
+        power_testbench_top = metadata.get("power_testbench_top")
+    else:
+        power_testbench_path, power_testbench_top = _power_testbench(metadata["task_name"])
     metrics: dict[str, Any]
     with tempfile.TemporaryDirectory(prefix="ai_eda_metrics_run_") as temp_dir:
         temp_path = Path(temp_dir)
@@ -562,15 +646,20 @@ def evaluate_metrics(run_dir: Path) -> dict[str, Any]:
                     text=True, capture_output=True, timeout=timeout_seconds, check=False,
                 )
                 if compile_result.returncode == 0:
-                    subprocess.run(
+                    power_result = subprocess.run(
                         ["vvp", str(executable), f"+vcd={vcd_path.resolve()}"],
                         text=True, capture_output=True, timeout=timeout_seconds, check=False,
                     )
-                    metrics = synthesize_metrics(
-                        rtl_path,
-                        vcd_path=vcd_path,
-                        vcd_scope=f"{power_testbench_top}/dut",
-                    )
+                    (run_dir / "power_simulation.log").write_text(power_result.stdout + power_result.stderr, encoding="utf-8")
+                    if power_result.returncode != 0:
+                        metrics = {"status": "failed", "power_status": "failed", "reason": "Power activity simulation failed."}
+                    else:
+                        metrics = synthesize_metrics(
+                            rtl_path,
+                            vcd_path=vcd_path,
+                            vcd_scope=f"{power_testbench_top}/dut",
+                            artifact_dir=run_dir / "ppa",
+                        )
                 else:
                     metrics = {
                         "status": "failed",
@@ -579,33 +668,23 @@ def evaluate_metrics(run_dir: Path) -> dict[str, Any]:
                         "stderr": compile_result.stderr[-4000:],
                     }
             except subprocess.TimeoutExpired:
-                metrics = synthesize_metrics(rtl_path)
+                metrics = synthesize_metrics(rtl_path, artifact_dir=run_dir / "ppa")
                 metrics["power_status"] = "failed"
                 metrics["power_reason"] = "功耗测试平台仿真超时，已回退为仅面积评估。"
         else:
-            metrics = synthesize_metrics(rtl_path)
+            metrics = synthesize_metrics(rtl_path, artifact_dir=run_dir / "ppa")
     report = _read_report(run_dir)
     report["metrics"] = metrics
     save_report(run_dir, report)
     return report
 
 
+@timed_verification("all")
 def retest_run(run_dir: Path) -> dict[str, Any]:
     """根据实验记录中的显式文件路径，重新执行自动验收。"""
-    metadata = _load_run_metadata(run_dir)
-    power_testbench_path, power_testbench_top = _power_testbench(metadata["task_name"])
-    report = test_rtl(
-        task_name=metadata["task_name"],
-        testbench_path=Path(metadata["testbench_path"]),
-        testbench_top=metadata["testbench_top"],
-        rtl_path=run_dir / "generated.sv",
-        power_testbench_path=power_testbench_path,
-        power_testbench_top=power_testbench_top,
-        timeout_seconds=int(metadata.get("timeout_seconds", 20)),
-        run_dir=run_dir,
-        expected_cpu_level=metadata.get("expected_cpu_level"),
-    )
-    save_report(run_dir, report)
+    report = run_testbench(run_dir)
+    if report.get("passed"):
+        report = evaluate_metrics(run_dir)
     return report
 
 
@@ -640,6 +719,7 @@ def summarize_task(task_name: str) -> list[dict[str, Any]]:
                 "thinking": metadata.get("thinking"),
                 "passed": report.get("passed"),
                 "stage": report.get("stage"),
+                **prompt_summary(metadata, report),
             }
         )
     return summaries

@@ -1,0 +1,75 @@
+{
+  "run_id": "agent-20261103T081144962755",
+  "review_kind": "Source declaration review combined with independent behavioral acceptance; not a formal correctness proof",
+  "checks": [
+    {
+      "name": "ROB 8",
+      "path": "rtl/reorder_buffer.sv",
+      "sha256": "8e6dd20eae81fac2f018a3cd83242368385b14bc3b3d803c97762f958c124533",
+      "line": 80,
+      "anchor": "logic        e_valid    [0:7]",
+      "reviewed": true
+    },
+    {
+      "name": "IQ 8",
+      "path": "rtl/issue_queue.sv",
+      "sha256": "269d5ef9d42c9a8156c35a18ac032c3666a0a58d113620f1fc9d4a0beba5bd13",
+      "line": 48,
+      "anchor": "logic        ent_valid   [0:7]",
+      "reviewed": true
+    },
+    {
+      "name": "PRF 40",
+      "path": "rtl/rename_unit.sv",
+      "sha256": "d33382f843ce6e4283a2e078a4a8b6333de1dfe9a67ddf57bc070cf6fa02ed5e",
+      "line": 80,
+      "anchor": "logic [31:0] prf [0:39]",
+      "reviewed": true
+    },
+    {
+      "name": "Checkpoints 8",
+      "path": "rtl/rename_unit.sv",
+      "sha256": "d33382f843ce6e4283a2e078a4a8b6333de1dfe9a67ddf57bc070cf6fa02ed5e",
+      "line": 90,
+      "anchor": "logic [191:0] ckpt_rat [0:7]",
+      "reviewed": true
+    },
+    {
+      "name": "LSQ 2",
+      "path": "rtl/load_store_unit.sv",
+      "sha256": "d877522b084584c7be409314f2a5abc38e47f24ac5ab4bf33fff34600579a67d",
+      "line": 57,
+      "anchor": "localparam integer NENT = 2;",
+      "reviewed": true
+    },
+    {
+      "name": "I cache 256 bytes",
+      "path": "rtl/icache.sv",
+      "sha256": "19ef1b02d7a92f797b5ffce2896dc023fa9d5e0c4590380c4acfaf9182a539ea",
+      "line": 30,
+      "anchor": "logic [31:0]  line_data  [0:15][0:3]",
+      "reviewed": true
+    },
+    {
+      "name": "D cache 256 bytes",
+      "path": "rtl/dcache.sv",
+      "sha256": "15345d4da2696f7b7d06c0eea95b5e2f899fe71e391a27a8875bc59f13ad07f0",
+      "line": 30,
+      "anchor": "localparam integer NLINES = 16;",
+      "reviewed": true
+    },
+    {
+      "name": "Predictor 16 two-bit counters",
+      "path": "rtl/branch_predictor.sv",
+      "sha256": "75884b67364b8c47be59189021d50d6133cc74d5a1a65ffd117a6eb4d2fd5ad5",
+      "line": 29,
+      "anchor": "logic [1:0]  bht [0:15]",
+      "reviewed": true
+    }
+  ],
+  "behavior": {
+    "report": "independent_retest/20261103T094152/test_report.json",
+    "verified_level": 3,
+    "ooo_overlap_events": 90
+  }
+}

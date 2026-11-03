@@ -189,7 +189,7 @@
                 </div>
                 <div class="config-row">
                   <label>Temperature <input id="hw-temperature" type="number" min="0" max="2" step="0.1" value="0.2" /></label>
-                  <label>Max tokens <input id="hw-max-tokens" type="number" min="64" max="16384" step="1" value="8192" /></label>
+                  <label>Max tokens <input id="hw-max-tokens" type="number" min="64" max="16384" step="1" value="12000" /></label>
                   <label class="switch-label"><input id="hw-thinking" type="checkbox" /><span class="switch"></span>Request model reasoning</label>
                   <label>Reasoning <select id="hw-reasoning-effort"><option value="low">low</option><option value="high" selected>high</option><option value="max">max</option></select></label>
                 </div>
@@ -200,6 +200,7 @@
             <aside class="result-column">
               <article class="panel model-panel">
                 <div class="panel-heading"><span>MODEL RESPONSE</span><span id="hw-run-id-label" class="muted">Not run yet</span></div>
+                <div id="hw-run-metadata" class="run-metadata-wrap"></div>
                 <div class="response-tabs">
                   <button class="response-tab active" data-hw-response-tab="combined">Reasoning + Final answer</button>
                   <button class="response-tab" data-hw-response-tab="rtl">Generate RTL</button>
@@ -334,6 +335,7 @@
               </span>
             </div>
             <div id="agent-compare-body" class="agent-compare-body empty-copy">Run the agent to compare passes, attempts, duration, output tokens, and circuit metrics.</div>
+            <div id="agent-run-metadata" class="run-metadata-wrap"></div>
           </section>
         </section>
       </main>
@@ -393,10 +395,13 @@
         <h2>Run configuration</h2>
         <p class="field-hint">Applies to the next Run Agent.</p>
         <label class="field-label inline">Temperature <input id="agent-temperature" type="number" min="0" max="2" step="0.1" value="0.2" /></label>
-        <label class="field-label inline">Max tokens <input id="agent-max-tokens" type="number" min="1" step="1" value="60000" /></label>
-        <label class="field-label inline">Max calls <input id="agent-max-calls" type="number" min="1" max="1000" step="1" value="100" /></label>
-        <label class="field-label inline">Max repairs <input id="agent-max-repair-attempts" type="number" min="1" max="10" step="1" value="8" /></label>
-        <p class="field-hint">Default: up to 8 Modifier repair rounds; Tester runs after each repair.</p>
+        <label class="field-label inline">Max tokens <input id="agent-max-tokens" type="number" min="1" step="1" value="32000" /></label>
+        <label class="field-label inline">Max calls <input id="agent-max-calls" type="number" min="1" max="1000" step="1" value="250" /></label>
+        <label class="field-label inline">Max repairs <input id="agent-max-repair-attempts" type="number" min="1" max="50" step="1" value="40" /></label>
+        <label class="field-label inline">PPA candidates <input id="agent-optimization-rounds" type="number" min="0" max="8" step="1" value="3" /></label>
+        <label class="field-label">L3 workflow
+          <select id="agent-l3-mode"><option value="fresh" selected>From scratch</option></select>
+        </label>
         <label class="switch-label planner-skill-option" title="Available for the synchronous FIFO project only">
           <input id="agent-planner-skill" type="checkbox" />
           <span class="switch"></span>Planner Skill: FIFO Area/Power Pre-Evaluation

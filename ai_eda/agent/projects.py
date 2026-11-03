@@ -57,6 +57,7 @@ for _project_id, _level, _title, _description, _spec_file in (
         "description": _description,
         "spec_path": TASKS_ROOT / "homework_rv32i5" / "specs" / _spec_file,
         "expected_cpu_level": _level,
+        "timeout_seconds": 90 if _level == 3 else 20,
     }
 
 

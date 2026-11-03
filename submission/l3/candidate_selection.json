@@ -1,0 +1,39 @@
+{
+  "objective": "min area * total_power_w",
+  "optimization_rounds": 3,
+  "candidates": [
+    {
+      "attempt": 16,
+      "area": 331234.2865,
+      "power_w": 0.02469138428569,
+      "area_power_product": 8178.633056567839,
+      "selected": true,
+      "report": "tester-16/test_report.json"
+    },
+    {
+      "attempt": 17,
+      "area": 324185.8698,
+      "power_w": 0.02383058145642,
+      "area_power_product": 7725.537777289268,
+      "selected": true,
+      "report": "tester-17/test_report.json"
+    },
+    {
+      "attempt": 18,
+      "area": 322582.741,
+      "power_w": 0.02482478506863,
+      "area_power_product": 8008.047212174538,
+      "selected": false,
+      "report": "tester-18/test_report.json"
+    },
+    {
+      "attempt": 19,
+      "area": 322582.741,
+      "power_w": 0.02482478506863,
+      "area_power_product": 8008.047212174538,
+      "selected": false,
+      "report": "tester-19/test_report.json"
+    }
+  ],
+  "selected_report": "tester-17/test_report.json"
+}

@@ -1,0 +1,96 @@
+{
+  "run_id": "agent-20261103T085650556354",
+  "generation_mode": "fresh",
+  "status": "failed",
+  "error": "Error code: 502 - {'error': {'message': \"BadGatewayError: OpenAIException - The upstream model service is abnormal or unreachable. Please try again. If the issue persists, contact platform support for troubleshooting. Submit a ticket: https://console.cloud.tencent.com/workorder/category?level1_id=1&level2_id=3333&data_title=%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%9C%8D%E5%8A%A1%E5%B9%B3%E5%8F%B0+TokenHub&source=14. Received Model Group=DeepSeek-V4.1-Flash-1017\\nAvailable Model Group Fallbacks=['e40788e8-16b3-4fe9-a0aa-83f595218122']\\nError doing the fallback: BadGatewayError: OpenAIException - The upstream model service is abnormal or unreachable. Please try again. If the issue persists, contact platform support for troubleshooting. Submit a ticket: https://console.cloud.tencent.com/workorder/category?level1_id=1&level2_id=3333&data_title=%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%9C%8D%E5%8A%A1%E5%B9%B3%E5%8F%B0+TokenHub&source=14 Error happened to model=e40788e8-16b3-4fe9-a0aa-83f595218122. Received Model Group=e40788e8-16b3-4fe9-a0aa-83f595218122\\nAvailable Model Group Fallbacks=None\\nError doing the fallback: BadGatewayError: OpenAIException - The upstream model service is abnormal or unreachable. Please try again. If the issue persists, contact platform support for troubleshooting. Submit a ticket: https://console.cloud.tencent.com/workorder/category?level1_id=1&level2_id=3333&data_title=%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%9C%8D%E5%8A%A1%E5%B9%B3%E5%8F%B0+TokenHub&source=14 Error happened to model=e40788e8-16b3-4fe9-a0aa-83f595218122\", 'type': None, 'param': None, 'code': '502'}}",
+  "planned_files": 11,
+  "model_generated_files": 2,
+  "module_checks": [
+    {
+      "path": "rtl/icache.sv",
+      "origin": "model",
+      "step": 3,
+      "call_indices": [
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "revisions_verified": 4,
+      "sha256": "987de75f53a42e85bc3927f5db451981870e346755968a0aa6075d63c9944aaa"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "origin": "model",
+      "step": 4,
+      "call_indices": [
+        10
+      ],
+      "revisions_verified": 1,
+      "sha256": "516d9b325f3c035f454973c64a273d4503948b8cc4553ce859371af2cb408b9b"
+    }
+  ],
+  "accepted_patches_verified": 0,
+  "patch_checks": [],
+  "teacher_unchanged": true,
+  "run_summary": {
+    "model": "DeepSeek-V4.1-Flash-1017",
+    "base_url": "https://llmapi.paratera.com/v1",
+    "temperature": null,
+    "max_tokens": 32000,
+    "thinking": true,
+    "reasoning_effort": "low",
+    "max_calls": 250,
+    "max_repair_attempts": 50,
+    "planner_skill": false,
+    "optimization_rounds": 4,
+    "snapshot_attempt": null,
+    "l3_mode": "fresh",
+    "generation_mode": "fresh",
+    "resumed_from": null,
+    "model_calls": 14,
+    "usage_calls": 13,
+    "missing_usage_calls": 1,
+    "usage_complete": false,
+    "prompt_tokens": null,
+    "completion_tokens": null,
+    "total_tokens": null,
+    "duration_ms": 340937,
+    "duration_basis": "agent_wall_time",
+    "run_id": "agent-20261103T085650556354",
+    "status": "failed",
+    "model_parameter_sets": [
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": null,
+        "max_tokens": 32000,
+        "thinking": true,
+        "reasoning_effort": "low"
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 32000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.1,
+        "max_tokens": 16000,
+        "thinking": false,
+        "reasoning_effort": null
+      }
+    ],
+    "passed": null,
+    "stage": null,
+    "area": null,
+    "total_power_w": null
+  },
+  "tester_attempts": null,
+  "meaning": "Provenance audit is separate from functional pass. Failed explorations remain failed."
+}

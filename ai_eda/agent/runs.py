@@ -17,6 +17,8 @@ from ai_eda.config import (
     AGENT_RUNS_ROOT,
 )
 from ai_eda.model.client import ModelClient
+from ai_eda.run_records import parameters
+from ai_eda.token_metrics import summarize_usage
 from ai_eda.rtl.runner import _run_component, test_rtl
 from ai_eda.agent.subagents.common import combine_files, report_feedback
 
@@ -176,7 +178,8 @@ def _normalize_retry(
     retry = node.get("retry")
     if retry is None:
         return None
-    if node.get("type") != "verify":
+    fixed_patch_loop = node_id == "modifier" and retry.get("target") == "tester" if isinstance(retry, dict) else False
+    if node.get("type") != "verify" and not fixed_patch_loop:
         raise ValueError("只有 Verify 节点可以配置失败重试")
     if not isinstance(retry, dict):
         raise ValueError("重试配置格式无效")
@@ -184,9 +187,9 @@ def _normalize_retry(
     maximum = retry.get("max", 1)
     if not isinstance(target, str) or target not in nodes:
         raise ValueError("重试目标节点不存在")
-    if nodes[target]["type"] != "model":
+    if nodes[target]["type"] != "model" and not fixed_patch_loop:
         raise ValueError("重试目标必须是 Model 节点")
-    if isinstance(maximum, bool) or not isinstance(maximum, int) or not 1 <= maximum <= MAX_RETRIES:
+    if isinstance(maximum, bool) or not isinstance(maximum, int) or not 1 <= maximum <= (10 if fixed_patch_loop else MAX_RETRIES):
         raise ValueError(f"重试次数必须在 1 到 {MAX_RETRIES} 之间")
     if node_id not in order or target not in order or order.index(target) >= order.index(node_id):
         raise ValueError("重试目标必须位于当前 Verify 节点之前")
@@ -337,7 +340,44 @@ def _run_payload(
         payload["design_name"] = design_name
     if resumed_from:
         payload["resumed_from"] = resumed_from
+    options_path = run_dir / "model_parameters.json"
+    payload["model_parameters"] = json.loads(options_path.read_text(encoding="utf-8")) if options_path.is_file() else {}
+    payload["usage"] = _usage_summary(events)
+    if finished_at:
+        payload["duration_ms"] = round((datetime.fromisoformat(finished_at) - datetime.fromisoformat(started_at)).total_seconds() * 1000, 1)
+    payload["run_summary"] = {**payload["model_parameters"], **payload["usage"], "duration_ms": payload.get("duration_ms"), "duration_basis": "agent_wall_time"}
+    _complete_summary(payload)
     return payload
+
+
+def _usage_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
+    calls = []
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        records = event.get("model_calls")
+        if isinstance(records, list) and records:
+            calls.extend(records)
+        elif event.get("model_call_attempted") or event.get("call_index") is not None:
+            calls.append(event)
+    return summarize_usage(calls)
+
+
+def _complete_summary(payload: dict[str, Any]) -> None:
+    configurations: list[dict[str, Any]] = []
+    for event in payload.get("events") or []:
+        config = event.get("model_parameters")
+        if isinstance(config, dict) and config not in configurations:
+            configurations.append(config)
+    report = payload.get("report") or {}
+    metrics = report.get("metrics") or {}
+    payload["run_summary"].update({
+        "run_id": payload["run_id"], "status": payload.get("status"),
+        "model_parameter_sets": configurations,
+        "passed": report.get("passed"), "stage": report.get("stage"),
+        "area": metrics.get("area") if report.get("passed") else None,
+        "total_power_w": metrics.get("total_power_w") if report.get("passed") and metrics.get("power_status") == "ok" else None,
+    })
 
 
 
@@ -386,6 +426,12 @@ def _write_metadata(
         metadata["design_name"] = design_name
     if resumed_from:
         metadata["resumed_from"] = resumed_from
+    events_path = run_dir / "events.json"
+    if events_path.is_file():
+        payload = json.loads(events_path.read_text(encoding="utf-8"))
+        metadata["usage"] = payload.get("usage")
+        metadata["duration_ms"] = payload.get("duration_ms")
+        _write_json(run_dir / "run_summary.json", {"run_id": run_id, **(payload.get("run_summary") or {})})
     _write_json(run_dir / "metadata.json", metadata)
 
 
@@ -608,6 +654,12 @@ def _normalize_run_payload(payload: dict[str, Any], run_dir: Path) -> dict[str, 
     payload.setdefault("spec", agent_task_spec(project["id"]))
     if isinstance(payload.get("graph"), dict):
         payload["graph"] = normalize_agent_graph(payload["graph"])
+    metadata_path = run_dir / "metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.is_file() else {}
+    payload["model_parameters"] = payload.get("model_parameters") or parameters(metadata)
+    payload["usage"] = _usage_summary(events)
+    payload["run_summary"] = {**payload["model_parameters"], **payload["usage"], "duration_ms": payload.get("duration_ms"), "duration_basis": "agent_wall_time"}
+    _complete_summary(payload)
     if not isinstance(payload.get("result"), dict):
         report = payload.get("report") or {}
         metrics = report.get("metrics") or {}
@@ -662,15 +714,7 @@ def list_agent_runs(project_id: str | None = None, limit: int = 40) -> list[dict
         events = payload.get("events") or []
         report = payload.get("report") or {}
         attempts = max((int(event.get("attempt", 1)) for event in events), default=1)
-        output_tokens = sum(
-            int(
-                event.get("output_tokens")
-                or (event.get("usage") or {}).get("completion_tokens")
-                or 0
-            )
-            for event in events
-            if isinstance(event, dict)
-        )
+        usage = payload["usage"]
         metrics = report.get("metrics") or {}
         capability = report.get("cpu_capability") or {}
         benchmarks = ((report.get("performance") or {}).get("benchmarks") or [])
@@ -695,9 +739,10 @@ def list_agent_runs(project_id: str | None = None, limit: int = 40) -> list[dict
                 "duration_ms": payload.get("duration_ms"),
                 "event_count": len(events),
                 "attempts": attempts,
-                "output_tokens": output_tokens or None,
-                # 兼容旧客户端字段；值同样只表示输出 token。
-                "total_tokens": output_tokens or None,
+                **payload["model_parameters"],
+                **usage,
+                "usage": usage,
+                "output_tokens": usage.get("completion_tokens"),
                 "area": metrics.get("area"),
                 "area_unit": metrics.get("area_unit"),
                 "total_power_w": metrics.get("total_power_w") if metrics.get("power_status") == "ok" else None,

@@ -1,0 +1,285 @@
+{
+  "run_id": "agent-20261103T071100178309",
+  "generation_mode": "fresh",
+  "status": "failed",
+  "error": null,
+  "planned_files": 11,
+  "model_generated_files": 11,
+  "module_checks": [
+    {
+      "path": "rtl/icache.sv",
+      "origin": "model",
+      "step": 3,
+      "call_indices": [
+        5
+      ],
+      "revisions_verified": 1,
+      "sha256": "7efd4003c46fa8faa54166c096fb13da348cd5ed81ec01efd5b190b9c6306850"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "origin": "model",
+      "step": 4,
+      "call_indices": [
+        6
+      ],
+      "revisions_verified": 1,
+      "sha256": "cc5fa02bdfec40634783ff541b9abb333ef23555960916be6fc9f71c3cf1e136"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "origin": "model",
+      "step": 5,
+      "call_indices": [
+        7
+      ],
+      "revisions_verified": 1,
+      "sha256": "75884b67364b8c47be59189021d50d6133cc74d5a1a65ffd117a6eb4d2fd5ad5"
+    },
+    {
+      "path": "rtl/fetch_frontend.sv",
+      "origin": "model",
+      "step": 6,
+      "call_indices": [
+        8
+      ],
+      "revisions_verified": 1,
+      "sha256": "9b3a5932a472e1699a1363e8b60e28a27d80e7aa8cd496a92e9d5fccdf000bed"
+    },
+    {
+      "path": "rtl/decode_unit.sv",
+      "origin": "model",
+      "step": 7,
+      "call_indices": [
+        9
+      ],
+      "revisions_verified": 1,
+      "sha256": "cc3664b674dde389ac568ec9809aae417dfbd82c2f80d8ed27d0994fd8915cd9"
+    },
+    {
+      "path": "rtl/rename_unit.sv",
+      "origin": "model",
+      "step": 8,
+      "call_indices": [
+        10
+      ],
+      "revisions_verified": 1,
+      "sha256": "17b3f5e323627f8fc6f5eeb7c8d5774bc57b7e7b371d970eb91c2fd4d3a384e8"
+    },
+    {
+      "path": "rtl/issue_queue.sv",
+      "origin": "model",
+      "step": 9,
+      "call_indices": [
+        11
+      ],
+      "revisions_verified": 1,
+      "sha256": "269d5ef9d42c9a8156c35a18ac032c3666a0a58d113620f1fc9d4a0beba5bd13"
+    },
+    {
+      "path": "rtl/integer_execute_unit.sv",
+      "origin": "model",
+      "step": 10,
+      "call_indices": [
+        12
+      ],
+      "revisions_verified": 1,
+      "sha256": "84d86fb87721baec75e4796a7f3a7f055d5d5ad423189fc3327c1429a9ae0169"
+    },
+    {
+      "path": "rtl/load_store_unit.sv",
+      "origin": "model",
+      "step": 11,
+      "call_indices": [
+        13,
+        14,
+        15
+      ],
+      "revisions_verified": 3,
+      "sha256": "abcdd1781cd2d5850b1e594d6897c609a878784bd6494ac84dd8ffb58a2132a1"
+    },
+    {
+      "path": "rtl/reorder_buffer.sv",
+      "origin": "model",
+      "step": 12,
+      "call_indices": [
+        16
+      ],
+      "revisions_verified": 1,
+      "sha256": "dd25d0e5dd7b78b4d33d168434ccfbd2ab68e060ae3ccef28d33f485cefe65a1"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "origin": "model",
+      "step": 13,
+      "call_indices": [
+        17
+      ],
+      "revisions_verified": 1,
+      "sha256": "14d330efe555b12c22f190eba07243aedfa352068f0e37a57a0635711a7bdf06"
+    }
+  ],
+  "accepted_patches_verified": 9,
+  "patch_checks": [
+    {
+      "step": 16,
+      "attempt": 1,
+      "changed_paths": [
+        "rtl/load_store_unit.sv"
+      ],
+      "fingerprint": "a6615e7994de2ae3a6555e5fe0a1e9f26062cdc71ca8d5fa388a9614cf485147",
+      "model_response": "step-16-modifier/call-019/raw_response.txt"
+    },
+    {
+      "step": 19,
+      "attempt": 2,
+      "changed_paths": [
+        "rtl/rename_unit.sv"
+      ],
+      "fingerprint": "e9f16c30b59de3e06a3d2a53eedc3e89909f05675814132763b317f86add9a7a",
+      "model_response": "step-19-modifier/call-023/raw_response.txt"
+    },
+    {
+      "step": 22,
+      "attempt": 3,
+      "changed_paths": [
+        "rtl/icache.sv"
+      ],
+      "fingerprint": "e0d12dbf7269321a5ea71bf8175c086ec25b2b4ff906d0d46aebd5b27ea22b6d",
+      "model_response": "step-22-modifier/call-025/raw_response.txt"
+    },
+    {
+      "step": 25,
+      "attempt": 4,
+      "changed_paths": [
+        "rtl/rv32i5.sv"
+      ],
+      "fingerprint": "e02d98e8d42a3c6793928058751d480527c336106e4dd1cfb0ca53aa15b91c54",
+      "model_response": "step-25-modifier/call-028/raw_response.txt"
+    },
+    {
+      "step": 28,
+      "attempt": 5,
+      "changed_paths": [
+        "rtl/icache.sv",
+        "rtl/rv32i5.sv"
+      ],
+      "fingerprint": "f5750c36571ab84ca95eb929a1fb0737891492dc3a15a8d28009e4f0bfc64391",
+      "model_response": "step-28-modifier/call-030/raw_response.txt"
+    },
+    {
+      "step": 31,
+      "attempt": 6,
+      "changed_paths": [
+        "rtl/rename_unit.sv"
+      ],
+      "fingerprint": "66da539445d119fd6a4a2d48ccab815772e2a12879f7d1b380d0b59908cf7310",
+      "model_response": "step-31-modifier/call-033/raw_response.txt"
+    },
+    {
+      "step": 34,
+      "attempt": 7,
+      "changed_paths": [
+        "rtl/dcache.sv",
+        "rtl/load_store_unit.sv"
+      ],
+      "fingerprint": "c950dc751e6992c977c5b4c559b90112f663b517f7a74f41c14a7dc47961a47a",
+      "model_response": "step-34-modifier/call-036/raw_response.txt"
+    },
+    {
+      "step": 37,
+      "attempt": 8,
+      "changed_paths": [
+        "rtl/dcache.sv"
+      ],
+      "fingerprint": "fdf1534d0d5428b1bf06b267d0a7909c9df0c56ea3971a32fa927b3a4646699b",
+      "model_response": "step-37-modifier/call-046/raw_response.txt"
+    },
+    {
+      "step": 40,
+      "attempt": 9,
+      "changed_paths": [
+        "rtl/load_store_unit.sv",
+        "rtl/rename_unit.sv"
+      ],
+      "fingerprint": "dc2790de77a64d8d8ad2c6213c02269bc7d651efda94e98b2eb5dd6b9fd1354e",
+      "model_response": "step-40-modifier/call-050/raw_response.txt"
+    }
+  ],
+  "teacher_unchanged": true,
+  "run_summary": {
+    "model": "DeepSeek-V4.1-Flash-1017",
+    "base_url": "https://llmapi.paratera.com/v1",
+    "temperature": null,
+    "max_tokens": 32000,
+    "thinking": true,
+    "reasoning_effort": "low",
+    "max_calls": 250,
+    "max_repair_attempts": 40,
+    "planner_skill": false,
+    "optimization_rounds": 3,
+    "snapshot_attempt": null,
+    "l3_mode": "fresh",
+    "generation_mode": "fresh",
+    "resumed_from": null,
+    "model_calls": 50,
+    "usage_calls": 50,
+    "missing_usage_calls": 0,
+    "usage_complete": true,
+    "prompt_tokens": 2046500,
+    "completion_tokens": 293193,
+    "total_tokens": 2339693,
+    "duration_ms": 2241967,
+    "duration_basis": "agent_wall_time",
+    "run_id": "agent-20261103T071100178309",
+    "status": "failed",
+    "model_parameter_sets": [
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": null,
+        "max_tokens": 32000,
+        "thinking": true,
+        "reasoning_effort": "low"
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 32000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 24000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": null,
+        "max_tokens": 24000,
+        "thinking": true,
+        "reasoning_effort": "low"
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 16000,
+        "thinking": false,
+        "reasoning_effort": null
+      }
+    ],
+    "passed": false,
+    "stage": "simulation",
+    "area": null,
+    "total_power_w": null
+  },
+  "tester_attempts": 10,
+  "meaning": "Provenance audit is separate from functional pass. Failed explorations remain failed."
+}

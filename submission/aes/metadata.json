@@ -1,0 +1,73 @@
+{
+  "task_name": "homework_aes128",
+  "spec_path": "/home/eda/projects/THU_AI_EDA_2026/content/tasks/homework_aes128/spec.md",
+  "testbench_path": "/home/eda/projects/THU_AI_EDA_2026/content/tasks/homework_aes128/tb.sv",
+  "testbench_top": "tb_homework_aes128",
+  "timeout_seconds": 30,
+  "task_spec_sha256": "5e83482062522f9c20e7e949a1f7b27777509d990fdd59a9a13c900de08db493",
+  "prompt_source": "/home/eda/projects/THU_AI_EDA_2026/content/prompts/homework/H1_two_sbox.md",
+  "prompt_sha256": "6def8a4f8d4ef61d977cfef7c0a27eb0ff4df5029979ba35db6697dbd07bdc25",
+  "raw_response_sha256": "0f0c16f503fe5ad73b59f53f241a5cb9b9b9730770246d57be695ac7ea2cda03",
+  "reasoning_available": false,
+  "rtl_sha256": "3e74029e65f9e39c551ba6c6cb2c4e493b440823a610ce29d2d9737e860c3aba",
+  "model": "deepseek-flash",
+  "base_url": "https://api.deepseek.com",
+  "thinking": false,
+  "reasoning_effort": null,
+  "temperature": 0.2,
+  "max_tokens": 12000,
+  "created_at": "2026-10-27T15:24:55.511474+00:00",
+  "generation_mode": "single_call_no_feedback",
+  "finish_reason": "stop",
+  "usage": {
+    "prompt_tokens": 1409,
+    "completion_tokens": 5222,
+    "total_tokens": 6631
+  },
+  "model_calls": [
+    {
+      "model": "deepseek-flash",
+      "base_url": "https://api.deepseek.com",
+      "temperature": 0.2,
+      "max_tokens": 12000,
+      "thinking": false,
+      "reasoning_effort": null,
+      "started_at": "2026-10-27T15:24:41.664291+00:00",
+      "usage": {
+        "prompt_tokens": 1409,
+        "completion_tokens": 5222,
+        "total_tokens": 6631
+      },
+      "status": "completed",
+      "finished_at": "2026-10-27T15:24:55.510682+00:00",
+      "duration_ms": 16347.3,
+      "finish_reason": "stop"
+    }
+  ],
+  "generation_started_at": "2026-10-27T15:24:41.664268+00:00",
+  "generation_clock_session": "19f71734859147889d4bc6a5d3e64623",
+  "generation_started_counter": 37019.582342513,
+  "generation_finished_at": "2026-10-27T15:24:55.510749+00:00",
+  "generation_duration_ms": 16347.3,
+  "generation_status": "completed",
+  "error": null,
+  "verification_history": [
+    {
+      "kind": "tb",
+      "started_at": "2026-10-27T15:24:55.511968+00:00",
+      "finished_at": "2026-10-27T15:24:55.574871+00:00",
+      "duration_ms": 62.9
+    },
+    {
+      "kind": "metrics",
+      "started_at": "2026-10-27T15:29:37.119217+00:00",
+      "finished_at": "2026-10-27T15:29:40.120033+00:00",
+      "duration_ms": 3000.8
+    }
+  ],
+  "tb_duration_ms": 62.9,
+  "first_tb_finished_at": "2026-10-27T15:24:55.574871+00:00",
+  "duration_to_tb_ms": 16411.5,
+  "duration_clock": "monotonic",
+  "metrics_duration_ms": 3000.8
+}

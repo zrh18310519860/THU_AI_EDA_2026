@@ -82,6 +82,13 @@ def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8", "surrogatepass")).hexdigest()
 
 
+def rtl_tokens(value: str) -> list[str]:
+    """Compare code tokens while preserving strings, operators and directives."""
+    tokens = re.findall(r'"(?:\\.|[^"\\])*"|/\*.*?\*/|//[^\n]*|[A-Za-z_$][\w$]*|\d[\w\x27?]*|\S',
+                        value, flags=re.S)
+    return [token for token in tokens if not token.startswith(('//', '/*'))]
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -155,6 +162,7 @@ def _build_manifest(
     changed_files: dict[str, str],
     original_files: Mapping[str, str],
     operations: list[dict[str, str]],
+    ignored_noops: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     operation_counts = Counter(item["path"] for item in operations)
     file_changes = [
@@ -172,7 +180,7 @@ def _build_manifest(
         "operations": operations,
         "file_changes": file_changes,
     }
-    return {
+    manifest = {
         "schema_version": PATCH_SCHEMA_VERSION,
         "format": repair_format,
         "fingerprint": _sha256(_canonical_json(fingerprint_input)),
@@ -180,6 +188,9 @@ def _build_manifest(
         "changed_paths": sorted(changed_files),
         "files": file_changes,
     }
+    if ignored_noops:
+        manifest["ignored_noops"] = ignored_noops
+    return manifest
 
 
 def _apply_anchored_edits(
@@ -193,6 +204,7 @@ def _apply_anchored_edits(
     working = dict(project_files)
     original: dict[str, str] = {}
     operations: list[dict[str, str]] = []
+    ignored_noops: list[dict[str, str]] = []
     total_bytes = 0
 
     for index, raw_edit in enumerate(edits, start=1):
@@ -205,8 +217,14 @@ def _apply_anchored_edits(
         replacement = _validate_text(
             edit["replacement"], f"edit {index}.replacement", MAX_REPLACEMENT_BYTES, allow_empty=True
         )
+        # Models occasionally emit an overlapping edit twice, or include a
+        # no-op alongside real edits. A no-op has no effect on the current
+        # working text, so it is safe to discard it regardless of how many
+        # identical anchors exist. Real no-op-only patches still fail below
+        # because at least one file must change.
         if expected == replacement:
-            raise PatchProtocolError(f"edit {index} is a no-op")
+            ignored_noops.append({"index": str(index), "path": path, "reason": "redundant_noop"})
+            continue
         total_bytes += _byte_length(expected) + _byte_length(replacement)
         if total_bytes > MAX_TOTAL_EDIT_BYTES:
             raise PatchProtocolError("repair edits exceed the total size limit")
@@ -233,6 +251,8 @@ def _apply_anchored_edits(
     changed = {path: working[path] for path in original if working[path] != original[path]}
     if not changed:
         raise PatchProtocolError("repair produced no file changes")
+    if all(rtl_tokens(text) == rtl_tokens(original[path]) for path, text in changed.items()):
+        raise PatchProtocolError("repair changes only comments/whitespace, not RTL behavior")
     return RepairApplication(
         changed_files=changed,
         manifest=_build_manifest(
@@ -240,6 +260,7 @@ def _apply_anchored_edits(
             changed_files=changed,
             original_files=original,
             operations=operations,
+            ignored_noops=ignored_noops,
         ),
     )
 

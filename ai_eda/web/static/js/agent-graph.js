@@ -297,7 +297,8 @@ function sanitizeRetryConfigs() {
     if (!node.retry) return;
     const nodeIndex = order.indexOf(node.id);
     const targetIndex = order.indexOf(node.retry.target);
-    if (node.type !== "verify" || nodeIndex < 0 || targetIndex < 0 || targetIndex >= nodeIndex) {
+    const fixedPatchLoop = node.id === "modifier" && node.retry.target === "tester";
+    if ((!fixedPatchLoop && node.type !== "verify") || nodeIndex < 0 || targetIndex < 0 || targetIndex >= nodeIndex) {
       delete node.retry;
       removed += 1;
     }

@@ -7,6 +7,7 @@ import mimetypes
 import shutil
 import tempfile
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -46,6 +47,7 @@ from ai_eda.config import (
 from ai_eda.model.client import DEFAULT_SYSTEM_PROMPT, ModelClient
 from ai_eda.prompt.param_lab import describe as describe_param_lab
 from ai_eda.prompt.param_lab import run_demo as run_param_demo
+from ai_eda.run_records import CLOCK_SESSION_ID, prompt_summary
 from ai_eda.rtl.runner import (
     _run_component,
     evaluate_metrics,
@@ -157,6 +159,7 @@ def _run_payload(run_dir: Path, report: dict[str, Any]) -> dict[str, Any]:
         "rtl": read_text("generated.sv"),
         "metadata": metadata,
         "report": report,
+        "run_summary": prompt_summary(metadata, report),
     }
 
 
@@ -231,13 +234,20 @@ def _agent_options(request: dict[str, Any]) -> dict[str, Any]:
     max_tokens = int(request.get("max_tokens", 60000))
     if max_tokens < 1:
         raise ValueError("max_tokens 必须为正整数")
-    max_calls = int(request.get("max_calls", 100))
+    l3_project = request.get("project_id") == "rv32i5_ooo"
+    max_calls = int(request.get("max_calls", 250 if l3_project else 100))
     if not 1 <= max_calls <= 1000:
         raise ValueError("max_calls 必须在 1 到 1000 之间")
-    max_repair_attempts = int(request.get("max_repair_attempts", 8))
-    if not 1 <= max_repair_attempts <= 10:
-        raise ValueError("max_repair_attempts 必须在 1 到 10 之间")
+    max_repair_attempts = int(request.get("max_repair_attempts", 40 if l3_project else 8))
+    if not 1 <= max_repair_attempts <= 50:
+        raise ValueError("max_repair_attempts 必须在 1 到 50 之间")
     planner_skill = bool(request.get("planner_skill", False))
+    optimization_rounds = int(request.get("optimization_rounds", 3 if l3_project else 0))
+    l3_mode = str(request.get("l3_mode", "fresh"))
+    if l3_mode != "fresh":
+        raise ValueError("Built-in L3 reuse is disabled for new runs. Reload the page and use from-scratch generation.")
+    if not 0 <= optimization_rounds <= 8:
+        raise ValueError("optimization_rounds 必须在 0 到 8 之间")
     resume_from = request.get("resume_from")
     if resume_from in (None, ""):
         resume_from = None
@@ -266,6 +276,8 @@ def _agent_options(request: dict[str, Any]) -> dict[str, Any]:
         "max_calls": max_calls,
         "max_repair_attempts": max_repair_attempts,
         "planner_skill": planner_skill,
+        "optimization_rounds": optimization_rounds,
+        "l3_mode": l3_mode,
         "resume_from": resume_from,
         "design_id": design_id,
         "design_name": design_name,
@@ -502,6 +514,28 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
 
         self._begin_event_stream()
         final: dict[str, Any] | None = None
+        started_at = datetime.now(timezone.utc).isoformat()
+        started = time.perf_counter()
+
+        def persist_generation(error: str | None = None) -> Path:
+            final_result = final or {}
+            return save_generation_run(
+                task_name=task_id, spec_path=spec_path, testbench_path=testbench_path,
+                testbench_top=testbench_top, prompt_path=prompt_path, run_id=run_id,
+                raw_response=final_result.get("answer") or "",
+                reasoning=final_result.get("reasoning"), **options,
+                finish_reason=final_result.get("finish_reason"), usage=final_result.get("usage"),
+                generation_metadata={
+                    "model_calls": client.request_records,
+                    "generation_started_at": started_at,
+                    "generation_clock_session": CLOCK_SESSION_ID,
+                    "generation_started_counter": started,
+                    "generation_finished_at": datetime.now(timezone.utc).isoformat(),
+                    "generation_duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                    "generation_status": "failed" if error else "completed",
+                    "error": error,
+                },
+            )
         try:
             self._write_event({"type": "start", "run_id": run_id})
             for event in client.stream_once_detail(prompt_text, DEFAULT_SYSTEM_PROMPT):
@@ -511,28 +545,16 @@ class WorkbenchHandler(SimpleHTTPRequestHandler):
                     self._write_event(event)
             if final is None:
                 raise RuntimeError("模型流式响应没有正常结束。")
-            run_dir = save_generation_run(
-                task_name=task_id,
-                spec_path=spec_path,
-                testbench_path=testbench_path,
-                testbench_top=testbench_top,
-                prompt_path=prompt_path,
-                run_id=run_id,
-                raw_response=final.get("answer") or "",
-                reasoning=final.get("reasoning"),
-                temperature=options["temperature"],
-                max_tokens=options["max_tokens"],
-                thinking=options["thinking"],
-                reasoning_effort=options["reasoning_effort"],
-                finish_reason=final.get("finish_reason"),
-                usage=final.get("usage"),
-            )
+            run_dir = persist_generation()
             self._write_event({"type": "done", "run": _run_payload(run_dir, {})})
         except (BrokenPipeError, ConnectionResetError):
+            if not final:
+                persist_generation("Client disconnected before generation finished")
             return
         except Exception as error:  # 保留具体原因，前端显示在运行状态里。
+            run_dir = persist_generation(str(error))
             try:
-                self._write_event({"type": "error", "error": str(error)})
+                self._write_event({"type": "error", "error": str(error), "run": _run_payload(run_dir, {})})
             except (BrokenPipeError, ConnectionResetError):
                 pass
         finally:

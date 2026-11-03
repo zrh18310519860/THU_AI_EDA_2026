@@ -1,0 +1,240 @@
+{
+  "run_id": "agent-20261103T065317302730",
+  "generation_mode": "fresh",
+  "status": "failed",
+  "error": "Diagnoser failed validation after three calls: Cite exactly ONE short current source anchor per edit path (at most four)",
+  "planned_files": 11,
+  "model_generated_files": 11,
+  "module_checks": [
+    {
+      "path": "rtl/icache.sv",
+      "origin": "model",
+      "step": 3,
+      "call_indices": [
+        5,
+        6,
+        7
+      ],
+      "revisions_verified": 3,
+      "sha256": "e8e04d5eda3322411fa4902e82dbfc8bf709f836081e52eedadf5cb781324043"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "origin": "model",
+      "step": 4,
+      "call_indices": [
+        8
+      ],
+      "revisions_verified": 1,
+      "sha256": "b5d3b7c3aad0bce220045e40ab495ba009232b892dbd3205e727838637d36aa2"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "origin": "model",
+      "step": 5,
+      "call_indices": [
+        9
+      ],
+      "revisions_verified": 1,
+      "sha256": "5b15e57d827d9cc76014f65e4e354fd823694ec22dfba970dc445b238c404a36"
+    },
+    {
+      "path": "rtl/frontend.sv",
+      "origin": "model",
+      "step": 6,
+      "call_indices": [
+        10
+      ],
+      "revisions_verified": 1,
+      "sha256": "fef1ab993e6530bb615afb28c8578f273a1de96290712f895b1b1f68821a530d"
+    },
+    {
+      "path": "rtl/decode.sv",
+      "origin": "model",
+      "step": 7,
+      "call_indices": [
+        11,
+        12
+      ],
+      "revisions_verified": 2,
+      "sha256": "c41b63589fd1bf0aab3cd26011d01d21f595a6c45bc96cf0191e739caa7bc4f3"
+    },
+    {
+      "path": "rtl/rename_unit.sv",
+      "origin": "model",
+      "step": 8,
+      "call_indices": [
+        13
+      ],
+      "revisions_verified": 1,
+      "sha256": "4219647d3c2a702a0ac0825fbad452e363b1f90a613f0e7b24613648ed229df9"
+    },
+    {
+      "path": "rtl/issue_queue.sv",
+      "origin": "model",
+      "step": 9,
+      "call_indices": [
+        14
+      ],
+      "revisions_verified": 1,
+      "sha256": "2728caf9b6b74d764a59ea2f4479cba9fb84eda1051b3747a66afb128f389f49"
+    },
+    {
+      "path": "rtl/execute.sv",
+      "origin": "model",
+      "step": 10,
+      "call_indices": [
+        15,
+        16,
+        17
+      ],
+      "revisions_verified": 3,
+      "sha256": "b11b73e102629231d177f36822f8f2b3ff107d0b45943e196855d416ee1dad36"
+    },
+    {
+      "path": "rtl/reorder_buffer.sv",
+      "origin": "model",
+      "step": 11,
+      "call_indices": [
+        18
+      ],
+      "revisions_verified": 1,
+      "sha256": "3722d56a5c7822d61c1691109d754cb2a58db7a25b8b358bd377327dcb74481a"
+    },
+    {
+      "path": "rtl/load_store_unit.sv",
+      "origin": "model",
+      "step": 12,
+      "call_indices": [
+        19
+      ],
+      "revisions_verified": 1,
+      "sha256": "19f2cd616a755b0f731673f62b0184d397fec3d4c7d8d324568c41b3f3bd1cf1"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "origin": "model",
+      "step": 13,
+      "call_indices": [
+        20
+      ],
+      "revisions_verified": 1,
+      "sha256": "b27123717845b62ef308292856b8d575c5d71140e9bcce8f54efb9c18ae87221"
+    }
+  ],
+  "accepted_patches_verified": 4,
+  "patch_checks": [
+    {
+      "step": 16,
+      "attempt": 1,
+      "changed_paths": [
+        "rtl/execute.sv"
+      ],
+      "fingerprint": "64b72fe4aee386b6acebb0651d904f0cb4df0c4fe0fcf0ee961a2253748c8514",
+      "model_response": "step-16-modifier/call-022/raw_response.txt"
+    },
+    {
+      "step": 19,
+      "attempt": 2,
+      "changed_paths": [
+        "rtl/icache.sv"
+      ],
+      "fingerprint": "9f9f348e7fe8eeb49cd17dbdddff6a55c1ea45500e3d19bb56b82d1913731e49",
+      "model_response": "step-19-modifier/call-024/raw_response.txt"
+    },
+    {
+      "step": 22,
+      "attempt": 3,
+      "changed_paths": [
+        "rtl/dcache.sv"
+      ],
+      "fingerprint": "3151353a601182415ec5566ce8fe736f9781d8a13a6824c9c18920eb74f4af78",
+      "model_response": "step-22-modifier/call-032/raw_response.txt"
+    },
+    {
+      "step": 25,
+      "attempt": 4,
+      "changed_paths": [
+        "rtl/load_store_unit.sv"
+      ],
+      "fingerprint": "c278db1a777909f53057c28c2ca917cf26ac25182d110a1ac023321d6d6abee7",
+      "model_response": "step-25-modifier/call-040/raw_response.txt"
+    }
+  ],
+  "teacher_unchanged": true,
+  "run_summary": {
+    "model": "DeepSeek-V4.1-Flash-1017",
+    "base_url": "https://llmapi.paratera.com/v1",
+    "temperature": null,
+    "max_tokens": 32000,
+    "thinking": true,
+    "reasoning_effort": "low",
+    "max_calls": 250,
+    "max_repair_attempts": 40,
+    "planner_skill": false,
+    "optimization_rounds": 3,
+    "snapshot_attempt": null,
+    "l3_mode": "fresh",
+    "generation_mode": "fresh",
+    "resumed_from": null,
+    "model_calls": 48,
+    "usage_calls": 48,
+    "missing_usage_calls": 0,
+    "usage_complete": true,
+    "prompt_tokens": 1738280,
+    "completion_tokens": 85928,
+    "total_tokens": 1824208,
+    "duration_ms": 559023,
+    "duration_basis": "agent_wall_time",
+    "run_id": "agent-20261103T065317302730",
+    "status": "failed",
+    "model_parameter_sets": [
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": null,
+        "max_tokens": 32000,
+        "thinking": true,
+        "reasoning_effort": "low"
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 32000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 24000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 8000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 16000,
+        "thinking": false,
+        "reasoning_effort": null
+      }
+    ],
+    "passed": false,
+    "stage": "simulation",
+    "area": null,
+    "total_power_w": null
+  },
+  "tester_attempts": null,
+  "meaning": "Provenance audit is separate from functional pass. Failed explorations remain failed."
+}

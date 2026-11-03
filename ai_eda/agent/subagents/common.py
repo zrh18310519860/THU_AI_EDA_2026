@@ -33,7 +33,7 @@ PLANNER_SYSTEM_PROMPT = """You are the RTL Planner of a digital IC design agent.
 Given the frozen spec, plan the project module and file structure. The agent will write each file separately.
 Return ONLY a JSON object:
 {"project_name": "...", "top_module": "...", "modules": [{"name": "module_name", "file": "rtl/module_name.sv", "description": "short responsibility", "interfaces": "complete port contract: every port name, direction and width; for each inter-module signal use the same name/width in all modules"}], "notes": "..."}
-Use only relative paths ending in .sv. Every module must be implementable in one file. The interfaces field is the interface contract: list every port name, direction and width, and use identical names/widths for a signal in every module. Do not return Markdown fences or extra text."""
+Use only relative paths ending in .sv. Every module must be implementable in one file. The interfaces field is the interface contract: list every port name, direction and width, and use identical names/widths for a signal in every module. Also return a protocols string per module and globally, defining signal ownership, handshake/response timing, packing and concurrent-event priorities; return dependencies (module names) per module. Order dependencies before consumers, top module last. Do not return Markdown fences or extra text."""
 
 RV32I_L1_CODE_PATTERNS = """RV32I L1 tactical patterns (use these structures; keep interfaces from the plan):
 1) IF response / stall:
@@ -69,6 +69,11 @@ RV32I_L1_CODE_PATTERNS = """RV32I L1 tactical patterns (use these structures; ke
   else if (fwd_a==2'b01) rs1_fwd = mem2wb_wdata;   // MEM/WB result
   // same for rs2; ex2mem_result for JAL/JALR must be pc4, not the address ALU output.
 6) Halt: only WB sees mem2wb_valid && mem2wb_is_ecall and sets halted/exit_code; preserve is_ecall through stall.
+7) External memory response:
+  // mem_resp_valid is the same-cycle acceptance pulse:
+  //   mem_resp_valid = mem_req_valid && mem_req_ready;
+  // sample mem_resp_data on that same clock edge. Do not insert a registered
+  // response delay unless producer and consumer are changed as one contract.
 """
 
 RV32I_PIPELINE_CHECKLIST = """RV32I L1/L2 implementation hard checks:
@@ -81,6 +86,7 @@ RV32I_PIPELINE_CHECKLIST = """RV32I L1/L2 implementation hard checks:
 - I-Cache refill word3: use the current last memory response for word3, not an old/empty refill register.
 - Forwarding: implement BOTH EX/MEM (fwd=2'b10) and MEM/WB (fwd=2'b01) paths; JAL/JALR EX/MEM result must select pc4/pc according to wb_sel, never blindly forward ALU result.
 - Halt/reset: synchronous active-low reset, dmem_valid=0 during reset; halted/exit_code are registered and stable after ECALL commits.
+- External read response: the bridge returns mem_resp_valid and mem_resp_data on the same edge as mem_req_valid && mem_req_ready; cache CPU responses may be registered for one cycle, but the external memory response is not delayed.
 """
 
 MODIFIER_SYSTEM_PROMPT = """You are the RTL Modifier of a digital IC design agent.
@@ -159,7 +165,7 @@ def validate_plan(payload: dict[str, Any]) -> dict[str, Any]:
     modules = payload.get("modules")
     if not isinstance(modules, list) or not modules:
         raise ValueError("Planner 没有返回 modules 列表")
-    clean_modules: list[dict[str, str]] = []
+    clean_modules: list[dict[str, Any]] = []
     seen_names: set[str] = set()
     seen_files: set[str] = set()
     for item in modules:
@@ -184,18 +190,26 @@ def validate_plan(payload: dict[str, Any]) -> dict[str, Any]:
             {
                 "name": name,
                 "file": file,
-                "description": str(item.get("description") or "")[:500],
-                "interfaces": str(item.get("interfaces") or "")[:1000],
+                "description": str(item.get("description") or ""),
+                "interfaces": str(item.get("interfaces") or ""),
+                "protocols": str(item.get("protocols") or ""),
+                "dependencies": item.get("dependencies") or [],
             }
         )
     top_module = payload.get("top_module") or clean_modules[0]["name"]
     if not isinstance(top_module, str) or top_module not in seen_names:
         raise ValueError("Planner 的 top_module 不在 modules 中")
+    for module in clean_modules:
+        dependencies = module["dependencies"]
+        if (not isinstance(dependencies, list) or any(not isinstance(d, str) or d not in seen_names
+                or d == module["name"] for d in dependencies)):
+            raise ValueError("Planner returned invalid dependencies: " + module["name"])
     return {
         "project_name": str(payload.get("project_name") or "agent_project")[:100],
         "top_module": top_module,
         "modules": clean_modules,
-        "notes": str(payload.get("notes") or "")[:2000],
+        "notes": str(payload.get("notes") or ""),
+        "protocols": str(payload.get("protocols") or ""),
     }
 
 

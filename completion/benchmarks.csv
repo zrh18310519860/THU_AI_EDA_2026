@@ -1,0 +1,6 @@
+﻿benchmark,cycles,instructions,branches,mispredicts,cpi,ipc,dmem_reads,dmem_writes,ooo_bypass,clock_hz
+trained_branch64,416,132,64,2,3.151515,0.317308,,,,
+teaching_crc32_64bytes,10836,3185,1088,388,3.402198,0.293928,16,0,4,100000000
+teaching_array_sum64,1035,324,64,2,3.194444,0.313043,64,0,30,100000000
+teaching_branch_predict64,1134,293,128,66,3.870307,0.258377,0,0,0,100000000
+teaching_ooo_overlap64,2196,516,64,2,4.255814,0.234973,64,0,90,100000000

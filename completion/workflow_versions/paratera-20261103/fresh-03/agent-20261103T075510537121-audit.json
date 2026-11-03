@@ -1,0 +1,283 @@
+{
+  "run_id": "agent-20261103T075510537121",
+  "generation_mode": "fresh",
+  "status": "failed",
+  "error": "Diagnoser failed validation after three calls: Diagnosis evidence is absent from the CURRENT source: rtl/reorder_buffer.sv",
+  "planned_files": 10,
+  "model_generated_files": 10,
+  "module_checks": [
+    {
+      "path": "rtl/icache.sv",
+      "origin": "model",
+      "step": 3,
+      "call_indices": [
+        5,
+        6
+      ],
+      "revisions_verified": 2,
+      "sha256": "62c1f373119f1e985845e4b5d24c7101d7640dc2a34699dfe4bfd5f974cb8007"
+    },
+    {
+      "path": "rtl/dcache.sv",
+      "origin": "model",
+      "step": 4,
+      "call_indices": [
+        7
+      ],
+      "revisions_verified": 1,
+      "sha256": "ac1e6f90c894c3d66bbd74d0e8c5865bf4fe25eb81f943d8a6d7b40b88af070a"
+    },
+    {
+      "path": "rtl/branch_predictor.sv",
+      "origin": "model",
+      "step": 5,
+      "call_indices": [
+        8,
+        9
+      ],
+      "revisions_verified": 2,
+      "sha256": "59ba1471f13b0c07c871fecbc41028ce60ea03135ea17c3cc498fcc06fd07b78"
+    },
+    {
+      "path": "rtl/frontend.sv",
+      "origin": "model",
+      "step": 6,
+      "call_indices": [
+        10
+      ],
+      "revisions_verified": 1,
+      "sha256": "dd25bd95b49b669fc2030fd0d18edd3c950fbb3d91964ee0c127870052dbf9f9"
+    },
+    {
+      "path": "rtl/rename_unit.sv",
+      "origin": "model",
+      "step": 7,
+      "call_indices": [
+        11,
+        12
+      ],
+      "revisions_verified": 2,
+      "sha256": "ca96fdeea4f362904ce87ecad6baea3cef2a9683304a4d5bdc95911b2dbc0588"
+    },
+    {
+      "path": "rtl/issue_queue.sv",
+      "origin": "model",
+      "step": 8,
+      "call_indices": [
+        13,
+        14
+      ],
+      "revisions_verified": 2,
+      "sha256": "be6358a1dad99eb9d3dd5a32585114dee2b4f1972944d8c014ea47e735247b69"
+    },
+    {
+      "path": "rtl/execute_unit.sv",
+      "origin": "model",
+      "step": 9,
+      "call_indices": [
+        15
+      ],
+      "revisions_verified": 1,
+      "sha256": "2958f48957db4ceac0697868baeaa2be31636f7ea4a287e18a86256345723845"
+    },
+    {
+      "path": "rtl/load_store_unit.sv",
+      "origin": "model",
+      "step": 10,
+      "call_indices": [
+        16
+      ],
+      "revisions_verified": 1,
+      "sha256": "e5e1ddf5579e606a28e3b7466600a89197b90b00468e3ef813adb7dc1892542e"
+    },
+    {
+      "path": "rtl/reorder_buffer.sv",
+      "origin": "model",
+      "step": 11,
+      "call_indices": [
+        17
+      ],
+      "revisions_verified": 1,
+      "sha256": "06e1176bfb8c0325249d22c91999b5f9e008f5c67a6666c558b7d1b7bc0d0951"
+    },
+    {
+      "path": "rtl/rv32i5.sv",
+      "origin": "model",
+      "step": 12,
+      "call_indices": [
+        18
+      ],
+      "revisions_verified": 1,
+      "sha256": "cccf69126345c1ab4d26f9cac10daa1754f6a400e02ccbfb63ec813dcc08ef20"
+    }
+  ],
+  "accepted_patches_verified": 10,
+  "patch_checks": [
+    {
+      "step": 15,
+      "attempt": 1,
+      "changed_paths": [
+        "rtl/rename_unit.sv"
+      ],
+      "fingerprint": "61add9f77a382c225c1f8931babfbb7d7ee67e6c887404d2da972ca6f8b38ca0",
+      "model_response": "step-15-modifier/call-020/raw_response.txt"
+    },
+    {
+      "step": 18,
+      "attempt": 2,
+      "changed_paths": [
+        "rtl/load_store_unit.sv"
+      ],
+      "fingerprint": "0d4b687f0bd858efc3acfe865fc4ece5f7151c76c896af4387616849d401e270",
+      "model_response": "step-18-modifier/call-024/raw_response.txt"
+    },
+    {
+      "step": 21,
+      "attempt": 3,
+      "changed_paths": [
+        "rtl/load_store_unit.sv"
+      ],
+      "fingerprint": "842a674eaa140303979192e877f1f750743bd69d0ac226e2861986d7b2507840",
+      "model_response": "step-21-modifier/call-027/raw_response.txt"
+    },
+    {
+      "step": 24,
+      "attempt": 4,
+      "changed_paths": [
+        "rtl/reorder_buffer.sv"
+      ],
+      "fingerprint": "161becfa4ff12d44d9a5163fed16375909dd0cc29bb0f5e5ee39fbcc3031c2de",
+      "model_response": "step-24-modifier/call-030/raw_response.txt"
+    },
+    {
+      "step": 27,
+      "attempt": 5,
+      "changed_paths": [
+        "rtl/reorder_buffer.sv"
+      ],
+      "fingerprint": "f21988df9d9dffadf846cfc1ed4eb1373bb9793630d41c9d7ab3c7421d33a905",
+      "model_response": "step-27-modifier/call-033/raw_response.txt"
+    },
+    {
+      "step": 30,
+      "attempt": 6,
+      "changed_paths": [
+        "rtl/reorder_buffer.sv"
+      ],
+      "fingerprint": "5ae152abc940779feb651dcf1d3eebf87260c1c9862da79be4423473f6721d58",
+      "model_response": "step-30-modifier/call-037/raw_response.txt"
+    },
+    {
+      "step": 33,
+      "attempt": 7,
+      "changed_paths": [
+        "rtl/rename_unit.sv"
+      ],
+      "fingerprint": "1db4c0570f309d634972d025a0ce7f62b06f23d970398ee3e21fb33ddc7690b1",
+      "model_response": "step-33-modifier/call-041/raw_response.txt"
+    },
+    {
+      "step": 36,
+      "attempt": 8,
+      "changed_paths": [
+        "rtl/dcache.sv"
+      ],
+      "fingerprint": "3f29fcd1c3ade1d8cee6b8f68348202d5e91dadf095bac7cbcbdf7de9ba07c35",
+      "model_response": "step-36-modifier/call-045/raw_response.txt"
+    },
+    {
+      "step": 39,
+      "attempt": 9,
+      "changed_paths": [
+        "rtl/rv32i5.sv"
+      ],
+      "fingerprint": "b3c830099e0e97190ec278e135e1ffd99969c0610b267c21096070277b0c68c6",
+      "model_response": "step-39-modifier/call-048/raw_response.txt"
+    },
+    {
+      "step": 42,
+      "attempt": 10,
+      "changed_paths": [
+        "rtl/rv32i5.sv"
+      ],
+      "fingerprint": "c460aa8fd5c44d6d4115b43ab96e584bccb2425dbaf132b2afac7d3776080fc6",
+      "model_response": "step-42-modifier/call-052/raw_response.txt"
+    }
+  ],
+  "teacher_unchanged": true,
+  "run_summary": {
+    "model": "DeepSeek-V4.1-Flash-1017",
+    "base_url": "https://llmapi.paratera.com/v1",
+    "temperature": null,
+    "max_tokens": 32000,
+    "thinking": true,
+    "reasoning_effort": "low",
+    "max_calls": 250,
+    "max_repair_attempts": 50,
+    "planner_skill": false,
+    "optimization_rounds": 3,
+    "snapshot_attempt": null,
+    "l3_mode": "fresh",
+    "generation_mode": "fresh",
+    "resumed_from": null,
+    "model_calls": 56,
+    "usage_calls": 56,
+    "missing_usage_calls": 0,
+    "usage_complete": true,
+    "prompt_tokens": 2481280,
+    "completion_tokens": 320377,
+    "total_tokens": 2801657,
+    "duration_ms": 2959352,
+    "duration_basis": "agent_wall_time",
+    "run_id": "agent-20261103T075510537121",
+    "status": "failed",
+    "model_parameter_sets": [
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": null,
+        "max_tokens": 32000,
+        "thinking": true,
+        "reasoning_effort": "low"
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 32000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 24000,
+        "thinking": false,
+        "reasoning_effort": null
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": null,
+        "max_tokens": 24000,
+        "thinking": true,
+        "reasoning_effort": "low"
+      },
+      {
+        "model": "DeepSeek-V4.1-Flash-1017",
+        "base_url": "https://llmapi.paratera.com/v1",
+        "temperature": 0.2,
+        "max_tokens": 16000,
+        "thinking": false,
+        "reasoning_effort": null
+      }
+    ],
+    "passed": false,
+    "stage": "simulation",
+    "area": null,
+    "total_power_w": null
+  },
+  "tester_attempts": null,
+  "meaning": "Provenance audit is separate from functional pass. Failed explorations remain failed."
+}

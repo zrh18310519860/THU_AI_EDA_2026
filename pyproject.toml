@@ -7,7 +7,7 @@ name = "ai-eda-lab"
 version = "0.1.0"
 description = "AI-assisted EDA teaching workbench"
 requires-python = ">=3.10"
-dependencies = ["openai>=1.0.0", "httpx[socks]>=0.24.0", "verilog-pad-analyzer==0.0.7"]
+dependencies = ["openai>=1.0.0", "httpx[socks]>=0.24.0", "verilog-pad-analyzer==0.0.7", "vcdvcd==2.6.0"]
 
 [tool.setuptools.packages.find]
 include = ["ai_eda*"]

@@ -368,6 +368,9 @@ async function generatePrompt() {
     }, (event) => {
       if (event.type === "start") {
         $("#run-id-label").textContent = event.run_id;
+      } else if (event.type === "restart") {
+        beginStreamDisplay("teaching");
+        $("#run-status").textContent = event.reason;
       } else if (event.type === "reasoning") {
         appendStreamDelta("reasoning", event.text);
       } else if (event.type === "answer") {

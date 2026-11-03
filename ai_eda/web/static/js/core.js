@@ -279,10 +279,6 @@ function formatClock(iso) {
 
 function eventOutputTokens(event) {
   if (!event || typeof event !== "object") return 0;
-  const direct = event.output_tokens;
-  if (direct !== null && direct !== undefined && Number.isFinite(Number(direct))) {
-    return Math.max(0, Number(direct));
-  }
   const completed = event.usage?.completion_tokens;
   if (completed !== null && completed !== undefined && Number.isFinite(Number(completed))) {
     return Math.max(0, Number(completed));
@@ -292,7 +288,53 @@ function eventOutputTokens(event) {
 
 function formatOutputTokens(event) {
   const count = eventOutputTokens(event);
+  if (!count && event?.streaming && event?.estimated_output_tokens) return `~${event.estimated_output_tokens} out (estimate)`;
   return count > 0 ? `${count} tok` : "";
+}
+
+function formatModelParameters(record = {}) {
+  const parts = [record.model || "Model not recorded"];
+  if (record.thinking === true) parts.push(`thinking=on (${record.reasoning_effort || "default"})`);
+  else if (record.thinking === false) parts.push("thinking=off");
+  if (record.temperature !== null && record.temperature !== undefined) parts.push(`T=${record.temperature}`);
+  if (record.max_tokens !== null && record.max_tokens !== undefined) parts.push(`max_tokens=${record.max_tokens}`);
+  return parts.join(" · ");
+}
+
+function formatUsage(record = {}) {
+  const usage = record.usage || record;
+  if (usage.total_tokens === null || usage.total_tokens === undefined) {
+    return usage.missing_usage_calls > 0 ? `Not provided (${usage.missing_usage_calls} calls missing usage)` : "Not recorded / provided";
+  }
+  return `${usage.total_tokens} total · ${usage.prompt_tokens ?? "?"} in / ${usage.completion_tokens ?? "?"} out`;
+}
+
+function renderRunMetadata(container, record) {
+  if (!container) return;
+  container.replaceChildren();
+  if (!record) { container.textContent = "No run selected"; return; }
+  const rows = [
+    ["Model / parameters", formatModelParameters(record)],
+    ["API tokens", formatUsage(record)],
+    [record.duration_basis === "agent_wall_time" ? "Agent elapsed" : "Elapsed to TB", record.duration_ms == null ? "Not recorded / TB pending" : formatDuration(record.duration_ms)],
+  ];
+  if (record.generation_duration_ms != null) rows.push(["Generation", formatDuration(record.generation_duration_ms)]);
+  if (record.tb_duration_ms != null) rows.push(["Teacher TB", formatDuration(record.tb_duration_ms)]);
+  if (record.metrics_duration_ms != null) rows.push(["Area / power evaluation", formatDuration(record.metrics_duration_ms)]);
+  if (record.model_calls != null) rows.push(["Model calls", String(record.model_calls)]);
+  if (record.l3_mode) rows.push(["L3 workflow", record.generation_mode === "resumed" || record.resumed_from ? "Explicit resume (not a fresh start)" : record.l3_mode === "verified_incremental" ? "Historical baseline reuse (not fresh generation)" : "From scratch"]);
+  (record.model_parameter_sets || []).forEach((config, index) => rows.push([`Call configuration ${index + 1}`, formatModelParameters(config)]));
+  if (record.error) rows.push(["Error", record.error]);
+  const dl = document.createElement("dl");
+  dl.className = "run-metadata";
+  rows.forEach(([label, value]) => {
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = label;
+    dd.textContent = value;
+    dl.append(dt, dd);
+  });
+  container.append(dl);
 }
 
 function totalTokens(events) {

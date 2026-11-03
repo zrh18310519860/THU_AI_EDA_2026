@@ -1,0 +1,14 @@
+{
+  "reference_sha256": "72e2b65ab4eb0f4b69d2f8af5f79b7fa40dc48e8eda8e25333b7bf2b006f2261",
+  "output_sha256": "260df301f056b4952e377143cb4546990b7ea34b30042cfda3b35825ebc86488",
+  "changed_parts": [
+    "word/document.xml",
+    "word/_rels/document.xml.rels"
+  ],
+  "added_parts": [
+    "word/media/image4.png"
+  ],
+  "removed_parts": [],
+  "section_geometry_preserved": true,
+  "aes_tables_and_paragraphs_preserved": true
+}

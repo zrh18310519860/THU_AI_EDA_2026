@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 import os
 import time
+from datetime import datetime, timezone
 from collections.abc import Iterator
 from typing import Any, Literal
 
-from openai import OpenAI
+from openai import APIConnectionError, APIError, APIStatusError, APITimeoutError, OpenAI
 
 from ai_eda.api_key import resolve_api_key
 
@@ -21,12 +22,9 @@ from .prompts import DEFAULT_SYSTEM_PROMPT, RTL_SYSTEM_PROMPT
 class ModelClient:
     """课程实验共用的 DeepSeek 单模型客户端。"""
 
-    # 当前课程默认使用 Flash：速度快、成本低，适合 Prompt 实验的重复采样。
-    MODEL_NAME = "deepseek-flash"
-    BASE_URL = "https://api.deepseek.com"
-
-    # 如需更强的复杂 RTL / Agent 推理能力，可将上一行改为：
-    # MODEL_NAME = "deepseek-v4-pro"
+    # Use the platform's exact model ID; overrides also appear in run records.
+    MODEL_NAME = os.getenv("AI_EDA_MODEL", "DeepSeek-V4.1-Flash-1017")
+    BASE_URL = os.getenv("AI_EDA_BASE_URL", "https://llmapi.paratera.com/v1")
 
     def __init__(
         self,
@@ -48,7 +46,33 @@ class ModelClient:
         self.max_tokens = max_tokens
         self.thinking = thinking
         self.reasoning_effort = reasoning_effort
-        self.client = OpenAI(api_key=api_key, base_url=self.BASE_URL)
+        self.request_records: list[dict[str, Any]] = []
+        # Explicit retries are recorded below; avoid invisible SDK retries.
+        self.client = OpenAI(api_key=api_key, base_url=self.BASE_URL, max_retries=0)
+
+    def parameters(self) -> dict[str, Any]:
+        return {
+            "model": self.MODEL_NAME,
+            "base_url": self.BASE_URL,
+            "temperature": None if self.thinking else self.temperature,
+            "max_tokens": self.max_tokens,
+            "thinking": self.thinking,
+            "reasoning_effort": self.reasoning_effort if self.thinking else None,
+        }
+
+    def _begin_request(self) -> dict[str, Any]:
+        record = {
+            **self.parameters(),
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "usage": None,
+            "status": "failed",
+        }
+        self.request_records.append(record)
+        return record
+
+    def _finish_request(self, record: dict[str, Any], started: float) -> None:
+        record["finished_at"] = datetime.now(timezone.utc).isoformat()
+        record["duration_ms"] = round((time.perf_counter() - started) * 1000, 1)
 
     def _complete(self, messages: list[dict[str, str]]) -> str:
         """向 DeepSeek 发送完整消息历史并取回最终文本。"""
@@ -56,6 +80,12 @@ class ModelClient:
 
     # 服务端偶发返回空 content 时允许自动重试的次数；max_tokens 截断不会重试。
     EMPTY_CONTENT_RETRIES = 1
+    STREAM_CONNECTION_RETRIES = 2
+    TRANSIENT_STATUS_RETRIES = 2
+
+    @staticmethod
+    def _retryable_status(status: int) -> bool:
+        return status in {408, 429} or 500 <= status < 600
 
     def _empty_content_error(
         self,
@@ -113,9 +143,27 @@ class ModelClient:
             request["temperature"] = self.temperature
 
         attempts = 0
+        transient_failures = 0
         while True:
             attempts += 1
-            completion = self.client.chat.completions.create(**request)
+            record = self._begin_request()
+            started = time.perf_counter()
+            try:
+                completion = self.client.chat.completions.create(**request)
+            except APIStatusError as error:
+                record.update(error=str(error)[-1000:], http_status=error.status_code)
+                if error.status_code == 402:
+                    raise RuntimeError("模型服务余额不足（HTTP 402），本次请求已停止。充值后可从原失败快照继续。") from error
+                if self._retryable_status(error.status_code) and transient_failures < self.TRANSIENT_STATUS_RETRIES:
+                    transient_failures += 1
+                    time.sleep(0.8 * transient_failures)
+                    continue
+                raise
+            except APIError as error:
+                record.update(error=str(error)[-1000:], error_type=type(error).__name__)
+                raise
+            finally:
+                self._finish_request(record, started)
             choice = completion.choices[0]
             message = choice.message
             content = message.content if isinstance(message.content, str) else ""
@@ -133,6 +181,8 @@ class ModelClient:
                 if usage is not None
                 else None
             )
+            record.update(usage=usage_payload, finish_reason=finish_reason,
+                          status="completed" if content.strip() else "failed")
             if content.strip():
                 return {
                     "answer": content,
@@ -140,6 +190,8 @@ class ModelClient:
                     "usage": usage_payload,
                     # "stop" 表示正常结束；"length" 表示触达 max_tokens 被截断。
                     "finish_reason": finish_reason,
+                    "model_calls": list(self.request_records),
+                    "generation_duration_ms": sum(item["duration_ms"] for item in self.request_records),
                 }
             # 已被 max_tokens 截断时，重复同一请求只会再次被截断，直接报错。
             if finish_reason == "length" or attempts > self.EMPTY_CONTENT_RETRIES:
@@ -157,6 +209,7 @@ class ModelClient:
             "messages": messages,
             "max_tokens": self.max_tokens,
             "stream": True,
+            "stream_options": {"include_usage": True},
             "extra_body": {
                 "thinking": {"type": "enabled" if self.thinking else "disabled"}
             },
@@ -170,33 +223,83 @@ class ModelClient:
         reasoning_parts: list[str] = []
         usage_payload: dict[str, Any] | None = None
         finish_reason: str | None = None
-        completion = self.client.chat.completions.create(**request)
-        for chunk in completion:
-            usage = getattr(chunk, "usage", None)
-            if usage is not None:
-                usage_payload = {
-                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                    "completion_tokens": getattr(usage, "completion_tokens", None),
-                    "total_tokens": getattr(usage, "total_tokens", None),
-                }
-            choices = getattr(chunk, "choices", None) or []
-            if not choices:
+        record: dict[str, Any] | None = None
+        for attempt in range(self.STREAM_CONNECTION_RETRIES + 1):
+            answer_parts = []
+            reasoning_parts = []
+            usage_payload = None
+            finish_reason = None
+            record = self._begin_request()
+            started = time.perf_counter()
+            completion = None
+            emitted = False
+            try:
+                completion = self.client.chat.completions.create(**request)
+                for chunk in completion:
+                    usage = getattr(chunk, "usage", None)
+                    if usage is not None:
+                        usage_payload = {
+                            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                            "completion_tokens": getattr(usage, "completion_tokens", None),
+                            "total_tokens": getattr(usage, "total_tokens", None),
+                        }
+                    choices = getattr(chunk, "choices", None) or []
+                    if not choices:
+                        continue
+                    choice = choices[0]
+                    finish_reason = getattr(choice, "finish_reason", None) or finish_reason
+                    delta = getattr(choice, "delta", None)
+                    if delta is None:
+                        continue
+                    reasoning_delta = getattr(delta, "reasoning_content", None)
+                    if not reasoning_delta:
+                        reasoning_delta = getattr(delta, "reasoning", None)
+                    if isinstance(reasoning_delta, str) and reasoning_delta:
+                        emitted = True
+                        reasoning_parts.append(reasoning_delta)
+                        yield {"type": "reasoning", "text": reasoning_delta}
+                    content_delta = getattr(delta, "content", None)
+                    if isinstance(content_delta, str) and content_delta:
+                        emitted = True
+                        answer_parts.append(content_delta)
+                        yield {"type": "answer", "text": content_delta}
+                record["status"] = "completed" if "".join(answer_parts).strip() else "failed"
+            except (APIConnectionError, APITimeoutError) as error:
+                record.update(status="failed", error=str(error)[-1000:])
+                if emitted:
+                    record["interrupted_output"] = {"answer": "".join(answer_parts),
+                                                    "reasoning": "".join(reasoning_parts)}
+                if attempt >= self.STREAM_CONNECTION_RETRIES:
+                    raise
+                # A stream retry is a NEW attempt, never a continuation of partial RTL.
+                yield {"type": "restart", "reason": "Interrupted stream; discarding partial output before retry."}
+                time.sleep(0.8)
                 continue
-            choice = choices[0]
-            finish_reason = getattr(choice, "finish_reason", None) or finish_reason
-            delta = getattr(choice, "delta", None)
-            if delta is None:
-                continue
-            reasoning_delta = getattr(delta, "reasoning_content", None)
-            if not reasoning_delta:
-                reasoning_delta = getattr(delta, "reasoning", None)
-            if isinstance(reasoning_delta, str) and reasoning_delta:
-                reasoning_parts.append(reasoning_delta)
-                yield {"type": "reasoning", "text": reasoning_delta}
-            content_delta = getattr(delta, "content", None)
-            if isinstance(content_delta, str) and content_delta:
-                answer_parts.append(content_delta)
-                yield {"type": "answer", "text": content_delta}
+            except APIStatusError as error:
+                record.update(status="failed", error=str(error)[-1000:], http_status=error.status_code)
+                if error.status_code == 402:
+                    raise RuntimeError("模型服务余额不足（HTTP 402），本次请求已停止。充值后可从原失败快照继续。") from error
+                if self._retryable_status(error.status_code) and attempt < self.STREAM_CONNECTION_RETRIES:
+                    if emitted:
+                        record["interrupted_output"] = {"answer": "".join(answer_parts),
+                                                        "reasoning": "".join(reasoning_parts)}
+                    yield {"type": "restart", "reason": f"Transient HTTP {error.status_code}; retrying the complete request."}
+                    time.sleep(0.8 * (attempt + 1))
+                    continue
+                raise
+            except APIError as error:
+                record.update(status="failed", error=str(error)[-1000:],
+                              error_type=type(error).__name__)
+                if emitted:
+                    record["interrupted_output"] = {"answer": "".join(answer_parts),
+                                                    "reasoning": "".join(reasoning_parts)}
+                raise
+            finally:
+                record.update(usage=usage_payload, finish_reason=finish_reason)
+                self._finish_request(record, started)
+                if completion is not None and hasattr(completion, "close"):
+                    completion.close()
+            break
 
         answer = "".join(answer_parts)
         reasoning = "".join(reasoning_parts) or None
@@ -208,6 +311,8 @@ class ModelClient:
             "reasoning": reasoning,
             "usage": usage_payload,
             "finish_reason": finish_reason,
+            "model_calls": list(self.request_records),
+            "generation_duration_ms": record["duration_ms"],
         }
 
     def stream_once_detail(

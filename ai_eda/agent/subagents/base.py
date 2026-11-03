@@ -70,6 +70,30 @@ class RunContext:
         )
 
     def call_model_messages(
+        self, event, messages, *, artifact_prompt=None, model_options=None
+    ):
+        try:
+            result = self._call_model_messages(event, messages, artifact_prompt=artifact_prompt,
+                                              model_options=model_options)
+            if result.get("finish_reason") != "length" or not (event.get("model_parameters") or {}).get("thinking"):
+                return result
+        except RuntimeError:
+            records = event.get("model_calls") or []
+            if (not records or records[-1].get("finish_reason") != "length"
+                    or event.get("response") or not event.get("reasoning")):
+                raise
+        # Preserve the exhausted call; use bounded notes to emit a complete artifact.
+        fallback = dict(model_options or {})
+        fallback.update(thinking=False, max_tokens=32000)
+        event["reasoning_budget_fallback"] = True
+        messages = list(messages) + [{"role": "user", "content":
+            "The output budget was exhausted before a complete final artifact. Produce the requested "
+            "COMPLETE artifact from its beginning now, with no explanation or further analysis. "
+            "Resolve remaining choices consistently with the spec. Bounded design notes:\n"
+            + str(event.get("reasoning") or "")[-24000:]}]
+        return self._call_model_messages(event, messages, model_options=fallback)
+
+    def _call_model_messages(
         self,
         event: dict[str, Any],
         messages: list[dict[str, str]],
@@ -87,6 +111,14 @@ class RunContext:
         event["call_index"] = self.model_calls
         event["conversation_messages"] = len(messages)
         client = self.make_client(model_options)
+        event["model_parameters"] = client.parameters()
+        event["model_call_attempted"] = True
+        call_dir = self.run_dir / f"step-{event['step']:02d}-{event['node_id']}" / f"call-{self.model_calls:03d}"
+        call_dir.mkdir(parents=True, exist_ok=False)
+        (call_dir / "prompt.md").write_text(artifact_prompt or str(messages[-1].get("content") or ""), encoding="utf-8")
+        (call_dir / "conversation.json").write_text(json.dumps(messages, ensure_ascii=False, indent=2), encoding="utf-8")
+        event.setdefault("model_call_artifacts", []).append(self.artifact_ref(call_dir))
+        all_calls = event.setdefault("model_calls", [])
         answer_parts: list[str] = []
         reasoning_parts: list[str] = []
         usage: dict[str, Any] | None = None
@@ -96,11 +128,29 @@ class RunContext:
         event["streaming"] = True
         event["reasoning"] = ""
         event["response"] = ""
-        event["output_tokens"] = 0
-        for chunk in client.stream_chat_detail(messages):
+        event["output_tokens"] = None
+        stream = client.stream_chat_detail(messages)
+        # Keep records from every validation retry, including a failed stream.
+        def tracked_stream():
+            try:
+                yield from stream
+            finally:
+                all_calls.extend(client.request_records)
+                event["model_duration_ms"] = sum(item.get("duration_ms", 0) for item in all_calls)
+                event["streaming"] = False
+                (call_dir / "raw_response.txt").write_text("".join(answer_parts), encoding="utf-8")
+                (call_dir / "reasoning.txt").write_text("".join(reasoning_parts), encoding="utf-8")
+                (call_dir / "request_records.json").write_text(
+                    json.dumps(client.request_records, ensure_ascii=False, indent=2), encoding="utf-8")
+        for chunk in tracked_stream():
             self.check_cancel()
             kind = chunk.get("type")
-            if kind == "reasoning":
+            if kind == "restart":
+                answer_parts.clear()
+                reasoning_parts.clear()
+                usage, finish_reason = None, None
+                event.setdefault("stream_restarts", []).append(chunk.get("reason"))
+            elif kind == "reasoning":
                 reasoning_parts.append(str(chunk.get("text") or ""))
             elif kind == "answer":
                 answer_parts.append(str(chunk.get("text") or ""))
@@ -111,7 +161,7 @@ class RunContext:
                 finish_reason = chunk.get("finish_reason")
             event["reasoning"] = "".join(reasoning_parts)
             event["response"] = "".join(answer_parts)
-            event["output_tokens"] = estimate_output_tokens(
+            event["estimated_output_tokens"] = estimate_output_tokens(
                 event["response"] + (event["reasoning"] or "")
             )
             now = time.monotonic()
@@ -145,6 +195,8 @@ class RunContext:
         event["raw_response"] = answer
         event["reasoning"] = reasoning
         event["usage"] = usage
+        event["finish_reason"] = finish_reason
+        event["model_duration_ms"] = sum(item.get("duration_ms", 0) for item in all_calls)
         event["output_tokens"] = reported_output_tokens(usage, answer + (reasoning or ""))
         event["streaming"] = False
         return result
@@ -200,6 +252,7 @@ class RunContext:
         payload: dict[str, Any],
         *,
         attempt: int | None = None,
+        revision: int | None = None,
         label: str = "",
     ) -> Path:
         """写出不可变交接消息；大内容必须通过 payload.artifacts 传递引用。"""
@@ -217,6 +270,8 @@ class RunContext:
             "payload": payload,
         }
         suffix = f"_attempt{attempt}" if attempt is not None else ""
+        if revision is not None:
+            suffix += f"_revision{revision}"
         path = self.handoffs_dir / f"{edge_id}{suffix}.json"
         if path.exists():
             raise ValueError(f"handoff 已存在，拒绝覆盖：{path.name}")

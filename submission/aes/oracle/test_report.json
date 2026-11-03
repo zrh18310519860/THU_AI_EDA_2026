@@ -1,0 +1,16 @@
+{
+  "task_name": "aes_oracle",
+  "rtl_path": "/home/eda/projects/THU_AI_EDA_2026/runs/prompt/homework_aes128/hw-20261027T152441661029/generated.sv",
+  "passed": true,
+  "stage": "simulation",
+  "return_code": 0,
+  "stdout": "ORACLE_RESULT: PASS cases=100 max_latency=110\n",
+  "stderr": "",
+  "trace": [],
+  "checks": [],
+  "timings_ms": {
+    "functional_tb": 899.4
+  },
+  "teacher_passed": true,
+  "functional_passed": true
+}

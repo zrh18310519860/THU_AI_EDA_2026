@@ -1,0 +1,10 @@
+{
+  "source_run": "agent-20261103T102631117220",
+  "source_brief": "runs/agent/agent-20261103T102631117220/artifacts/repair_brief_3_step8.json",
+  "source_sha256": "a0b305d77957df3b88e9e872acd9654a7488f628ad49fdcc5993d2fe1bad9bc7",
+  "actual_changes": [],
+  "rejection": "Diagnosis authorizes no concrete code changes. Do not invent a patch. Re-diagnose CURRENT evidence and request missing sources if needed.",
+  "passed": true,
+  "model_requests": 0,
+  "candidate_written": false
+}

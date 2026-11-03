@@ -7,6 +7,7 @@ Parser 需要补充 Spec 时通过 ``request_input`` 暂停并等待用户输入
 from __future__ import annotations
 
 import json
+import math
 import shutil
 import time
 from datetime import datetime, timezone
@@ -26,14 +27,47 @@ from ai_eda.agent.runs import (
 )
 from ai_eda.agent.subagents.base import RunContext
 from ai_eda.agent.subagents.coder import CoderAgent
+from ai_eda.agent.subagents.diagnoser import DiagnoserAgent
+from ai_eda.agent.repair_context import source_manifest, logic_fingerprint
 from ai_eda.agent.subagents.common import safe_project_path
 from ai_eda.agent.subagents.modifier import ModifierAgent
 from ai_eda.agent.subagents.parser import ParserAgent
 from ai_eda.agent.subagents.planner import PlannerAgent
 from ai_eda.agent.subagents.tester import TesterAgent
 from ai_eda.config import AGENT_RUNS_ROOT
+from ai_eda.model.client import ModelClient
 
 EventSink = Callable[[dict[str, Any]], None]
+
+
+def candidate_score(report: dict[str, Any]) -> float | None:
+    metrics = report.get("metrics") or {}
+    if not report.get("passed") or metrics.get("status") != "ok":
+        return None
+    values = [metrics.get("area"), metrics.get("total_power_w")]
+    if any(not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0 for v in values):
+        return None
+    return float(values[0]) * float(values[1])
+
+
+def measured_candidate_history(candidates, events, source_run):
+    history = []
+    for candidate in candidates[-8:]:
+        patches = [item for item in events if item.get("node_id") == "modifier"
+                   and item.get("status") == "info"
+                   and item.get("attempt") == candidate["attempt"] - 1]
+        patch = patches[-1] if patches else {}
+        snapshot = AGENT_RUNS_ROOT / source_run / f"artifacts/tested_manifest_{candidate['attempt']}.json"
+        fingerprint = None
+        if snapshot.is_file():
+            entries = json.loads(snapshot.read_text())["files"]
+            sources = {item["path"]: (AGENT_RUNS_ROOT / source_run / item["artifact"]).read_text()
+                       for item in entries}
+            fingerprint = logic_fingerprint(sources)
+        history.append({**candidate, "source_run": source_run, "logic_fingerprint": fingerprint,
+            "patch_summary": str(patch.get("response", "Initial accepted candidate"))[:1600],
+            "changed_paths": patch.get("changed_paths", [])})
+    return history
 
 
 def _check_cancel(cancel_event: Any) -> None:
@@ -41,7 +75,7 @@ def _check_cancel(cancel_event: Any) -> None:
         raise AgentCancelled("Agent 运行已取消。")
 
 
-def _load_resume_source(run_id: str) -> dict[str, Any]:
+def _load_resume_source(run_id: str, snapshot_attempt: int | None = None) -> dict[str, Any]:
     """读取上一次运行的 Spec/Plan，用于从 Coder 继续执行。"""
     name = str(run_id or "").strip()
     if not name or Path(name).name != name or name in {".", ".."}:
@@ -101,6 +135,25 @@ def _load_resume_source(run_id: str) -> dict[str, Any]:
     if project_rtl.is_dir():
         for path in sorted(project_rtl.glob("*.sv")):
             project_files[f"rtl/{path.name}"] = path.read_text(encoding="utf-8")
+    if snapshot_attempt is not None:
+        import hashlib
+        if type(snapshot_attempt) is not int or snapshot_attempt < 1:
+            raise ValueError("snapshot_attempt must be a positive integer")
+        manifest = json.loads((artifacts / f"tested_manifest_{snapshot_attempt}.json").read_text(encoding="utf-8"))
+        project_files = {}
+        for entry in manifest["files"]:
+            target = (source / entry["artifact"]).resolve()
+            if source.resolve() not in target.parents:
+                raise ValueError("Invalid snapshot artifact path")
+            text = target.read_text(encoding="utf-8")
+            if hashlib.sha256(text.encode("utf-8")).hexdigest() != entry["sha256"]:
+                raise ValueError("Resume snapshot hash mismatch")
+            project_files[entry["path"]] = text
+    selection_path = artifacts / "candidate_selection.json"
+    measured = []
+    if selection_path.exists():
+        selection = json.loads(selection_path.read_text(encoding="utf-8"))
+        measured = measured_candidate_history(selection.get("candidates", []), source_events, name)
     return {
         "run_id": name,
         "spec": spec,
@@ -112,6 +165,7 @@ def _load_resume_source(run_id: str) -> dict[str, Any]:
         "event": failed_event,
         "project_files": project_files,
         "source_status": events_payload.get("status"),
+        "measured_candidates": measured,
     }
 
 
@@ -173,19 +227,11 @@ def _seed_resume_project(
     files = source.get("project_files") or {}
     if not isinstance(files, dict) or not files:
         raise ValueError("上一次运行没有可续跑的 RTL 项目文件")
-    entries: list[dict[str, Any]] = []
     for relative, content in files.items():
         target = safe_project_path(context.run_dir, relative)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
-        entries.append(
-            {
-                "path": relative,
-                "artifact": context.artifact_ref(target),
-                "bytes": len(content.encode("utf-8")),
-            }
-        )
-    manifest_ref = context.write_json_artifact("rtl_manifest_resume.json", {"files": entries})
+    manifest_ref = source_manifest(context, files, "rtl_manifest_resume.json")
     tester_input = context.write_handoff(
         "coder",
         "tester",
@@ -209,8 +255,13 @@ def run_agent(
     max_tokens: int = 60000,
     max_calls: int = 100,
     max_repair_attempts: int = 8,
+    optimization_rounds: int = 0,
+    l3_mode: str = "fresh",
     planner_skill: bool = False,
     resume_from: str | None = None,
+    snapshot_attempt: int | None = None,
+    restart_stage: str | None = None,
+    plan_revision: dict[str, Any] | None = None,
     on_event: EventSink | None = None,
     cancel_event: Any = None,
     design_id: str | None = None,
@@ -228,14 +279,36 @@ def run_agent(
         raise ValueError("reasoning_effort 无效")
     if not 1 <= int(max_calls) <= 1000:
         raise ValueError("max_calls 必须在 1 到 1000 之间")
-    if not 1 <= int(max_repair_attempts) <= 10:
-        raise ValueError("max_repair_attempts 必须在 1 到 10 之间")
+    if not 1 <= int(max_repair_attempts) <= 50:
+        raise ValueError("max_repair_attempts 必须在 1 到 50 之间")
     max_tester_attempts = int(max_repair_attempts) + 1
+    if not 0 <= int(optimization_rounds) <= 8:
+        raise ValueError("optimization_rounds must be 0..8")
     project = get_project(project_id)
+    if l3_mode != "fresh":
+        raise ValueError("New L3 runs must use fresh generation; built-in baseline reuse is disabled. Historical runs remain readable.")
+    if not resume_from and (snapshot_attempt is not None or restart_stage or plan_revision is not None):
+        raise ValueError("Resume options require an explicit resume_from run ID")
     spec_base = agent_task_spec(project["id"])
     run_id = f"agent-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')}"
     run_dir = AGENT_RUNS_ROOT / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
+    _write_json(run_dir / "model_parameters.json", {
+        "model": ModelClient.MODEL_NAME,
+        "base_url": ModelClient.BASE_URL,
+        "temperature": None if thinking else temperature,
+        "max_tokens": max_tokens,
+        "thinking": thinking,
+        "reasoning_effort": reasoning_effort if thinking else None,
+        "max_calls": max_calls,
+        "max_repair_attempts": max_repair_attempts,
+        "planner_skill": bool(planner_skill),
+        "optimization_rounds": optimization_rounds,
+        "snapshot_attempt": snapshot_attempt,
+        "l3_mode": l3_mode if project["id"] == "rv32i5_ooo" else None,
+        "generation_mode": ("resumed" if resume_from else "fresh") if project["id"] == "rv32i5_ooo" else "standard",
+        "resumed_from": resume_from,
+    })
     _write_json(run_dir / "graph.json", graph)
     (run_dir / "project").mkdir(exist_ok=True)
 
@@ -321,6 +394,8 @@ def run_agent(
                 "reasoning_effort": reasoning_effort,
                 "planner_skill": bool(planner_skill),
                 "project": project,
+                "l3_mode": l3_mode,
+                "resume_from": resume_from,
             },
             begin_event=begin_event,
             finish_event=finish_event,
@@ -330,12 +405,37 @@ def run_agent(
             request_input=request_input,
             max_calls=max_calls,
         )
+        if project["id"] == "rv32i5_ooo":
+            context.write_json_artifact("exploration_provenance.json", {
+                "generation_mode": "resumed" if resume_from else "fresh",
+                "initial_project_files": [],
+                "resume_from": resume_from,
+                "builtin_rtl_allowed": False,
+                "external_rtl_seed_allowed": bool(resume_from),
+                "policy": "New run: model plans and generates all RTL from the teacher spec. Explicit resume is labelled separately. No fallback to reference RTL.",
+            })
+        resume_source = None
         if resume_from:
-            resume_source = _load_resume_source(resume_from)
+            resume_source = _load_resume_source(resume_from, snapshot_attempt)
+            if snapshot_attempt is not None:
+                context.write_json_artifact("resume_snapshot_provenance.json", {
+                    "source_run": resume_from, "tested_attempt": snapshot_attempt,
+                    "reason": "Explicit immutable tested snapshot selected; original records unchanged."})
             effective_spec = resume_source["spec"]
             plan = resume_source["plan"]
             parser_result = resume_source.get("parser_result") or {}
             resume_stage = str(resume_source.get("stage") or "coder")
+            if restart_stage:
+                if restart_stage not in {"planner", "coder", "tester", "diagnoser"}:
+                    raise ValueError("Invalid restart_stage")
+                resume_stage = restart_stage
+            if plan_revision is not None:
+                from ai_eda.agent.subagents.common import validate_plan
+                context.write_json_artifact("previous_plan.json", plan)
+                plan = validate_plan(plan_revision)
+                context.write_json_artifact("plan_revision_provenance.json", {
+                    "source_run": resume_from, "restart_stage": resume_stage,
+                    "reason": "Explicit interface-contract revision before regeneration; old evidence retained."})
             if resume_stage == "modifier":
                 # 续跑从 Modifier 输入开始；随后第一次 Tester 应使用第 2 轮，
                 # 避免与 seed 的 tester_to_modifier_attempt1.json 重名。
@@ -395,25 +495,31 @@ def run_agent(
                 next_tester_input = coder.run(
                     planner_handoff,
                     existing_files=resume_source.get("project_files") or {},
-                    start_module=resume_source.get("module"),
+                    start_module=None if restart_stage else resume_source.get("module"),
                 )
-            elif resume_stage in {"tester", "modifier", "summary"}:
+            elif resume_stage in {"tester", "modifier", "diagnoser", "summary"}:
                 seeded = _seed_resume_project(
                     context, resume_source, spec_ref, plan_ref
                 )
-                if resume_stage == "modifier":
-                    modifier_input = _seed_modifier_input(
-                        context,
-                        resume_source,
-                        spec_ref,
-                        plan_ref,
-                        seeded["manifest"],
-                    )
-                    modifier = ModifierAgent(context)
-                    next_tester_input = modifier.run(modifier_input, 1)
-                else:
-                    # 已有完整 RTL 时直接从 Tester 继续。
-                    next_tester_input = seeded["handler"]
+                next_tester_input = seeded["handler"]
+                if resume_stage == "diagnoser":
+                    source_attempt = snapshot_attempt
+                    if source_attempt is None:
+                        raise ValueError("Diagnoser restart requires snapshot_attempt")
+                    source_report = resume_source["source"] / f"tester-{source_attempt:02d}/test_report.json"
+                    report = json.loads(source_report.read_text(encoding="utf-8"))
+                    log = source_report.parent / "ppa/yosys.log"
+                    if log.exists():
+                        from ai_eda.rtl.metrics import mapping_hotspots
+                        report.setdefault("metrics", {})["memory_mapping_hotspots"] = mapping_hotspots(log.read_text(encoding="utf-8", errors="replace"))
+                    report_ref = context.write_json_artifact("resume_report.json", report)
+                    repair_input = context.write_handoff("resume", "diagnoser", {
+                        "artifacts": {"spec": spec_ref, "plan": plan_ref,
+                            "rtl_manifest": seeded["manifest"], "report": report_ref}},
+                        label=f"Resume {resume_from}: diagnose exact tested snapshot {source_attempt}")
+                    diagnosis = DiagnoserAgent(context).run(repair_input, 1)
+                    next_tester_input = ModifierAgent(context).run(diagnosis, 1)
+                    tester_attempts = 1
             else:
                 raise ValueError(
                     f"上一次运行停在 {resume_stage}，没有可直接继续的 Coder/Tester 产物"
@@ -438,6 +544,11 @@ def run_agent(
 
         tester = TesterAgent(context)
         modifier = ModifierAgent(context)
+        diagnoser = DiagnoserAgent(context)
+        best = None
+        candidates = []
+        optimizations = 0
+        failure_fingerprints = []
         while True:
             tester_attempts += 1
             tester_handoff = tester.run(next_tester_input, tester_attempts)
@@ -450,12 +561,88 @@ def run_agent(
             if not isinstance(report, dict):
                 raise ValueError("Tester 报告 artifact 格式无效")
             final_report = report
-            if report.get("passed"):
-                break
+            if report.get("tool_error"):
+                raise RuntimeError(report["tool_error"])
+            metrics = report.get("metrics") or {}
+            score = candidate_score(report)
+            accepted = score is not None
+            report["accepted"] = accepted
+            objective = "repair"
+            if not accepted and best is None:
+                from ai_eda.agent.skills.cpu_diagnostics import build_cpu_repair_packet
+                fingerprint = build_cpu_repair_packet(report)["failure_fingerprint"]
+                failure_fingerprints.append(fingerprint)
+                if len(failure_fingerprints) >= 3 and len(set(failure_fingerprints[-3:])) == 1:
+                    context.write_json_artifact("stagnation.json", {"reason": "Three tests produced identical failure evidence; no more speculative patches.",
+                        "attempt": tester_attempts, "fingerprint": fingerprint})
+                    break
+            if accepted:
+                selected = best is None or score < best["score"]
+                candidates.append({"attempt": tester_attempts, "area": metrics["area"],
+                    "power_w": metrics["total_power_w"], "area_power_product": score,
+                    "selected": selected, "report": report_ref})
+                if selected:
+                    best = {"score": score, "report": report, "handoff": tester_handoff}
+                if optimizations >= int(optimization_rounds):
+                    break
+                objective = "optimize"
+                optimizations += 1
+            elif best is not None:
+                candidates.append({"attempt": tester_attempts, "selected": False,
+                    "reason": "functional or PPA regression", "report": report_ref})
+                if optimizations >= int(optimization_rounds):
+                    break
+                optimizations += 1
+                objective = "optimize"
             if tester_attempts >= int(max_tester_attempts):
                 break
             check_cancel()
-            next_tester_input = modifier.run(tester_handoff, tester_attempts)
+            repair_input = best["handoff"] if best is not None else tester_handoff
+            if best is not None:
+                # Each new candidate starts from the best verified immutable snapshot.
+                source_payload = context.read_handoff(repair_input)["payload"]
+                measured = ((resume_source or {}).get("measured_candidates", []) +
+                            measured_candidate_history(candidates, events, run_id))[-8:]
+                repair_input = context.write_handoff("selection", "diagnoser", {
+                    **source_payload, "objective": objective,
+                    "evaluated_candidates": measured,
+                    "best_area_power_product": best["score"]}, attempt=tester_attempts,
+                    label="Selection: retain best functionally verified PPA candidate")
+            try:
+                for rethink in range(3):
+                    diagnosis = diagnoser.run(repair_input, tester_attempts)
+                    try:
+                        next_tester_input = modifier.run(diagnosis, tester_attempts)
+                        break
+                    except ValueError as patch_error:
+                        if rethink == 2:
+                            raise
+                        for pending in events:
+                            if pending.get("status") == "running":
+                                finish_event(pending, "failed", error=str(patch_error))
+                        # No rejected patch is written; re-diagnose the same tested snapshot.
+                        old_payload = context.read_handoff(repair_input)["payload"]
+                        repair_input = context.write_handoff("patch_rejection", "diagnoser", {
+                            **old_payload, "rejected_patch_feedback": str(patch_error)},
+                            attempt=tester_attempts, revision=rethink + 1,
+                            label="Patch rejected: re-diagnose unchanged tested sources")
+            except Exception as error:
+                if best is None:
+                    raise
+                context.write_json_artifact(f"rejected_proposal_{tester_attempts}.json", {
+                    "error": str(error), "retained_best": True,
+                    "reason": "Invalid optimization proposal; verified baseline preserved."})
+                for pending in events:
+                    if pending.get("status") == "running":
+                        finish_event(pending, "failed", error=str(error))
+                break
+
+        if best is not None:
+            final_report = best["report"]
+            tester_handoff = best["handoff"]
+        context.write_json_artifact("candidate_selection.json", {"objective": "min area * total_power_w",
+            "optimization_rounds": optimizations, "candidates": candidates,
+            "selected_report": context.read_handoff(tester_handoff)["payload"]["artifacts"]["report"]})
 
         if final_report is None:
             raise ValueError("Tester 没有产出验收报告")
@@ -478,9 +665,13 @@ def run_agent(
             if isinstance(parser_result_ref, str):
                 parsed = context.read_json_artifact(parser_result_ref)
                 parser_result = parsed if isinstance(parsed, dict) else {}
-        passed = bool(final_report.get("passed"))
+        passed = bool(final_report.get("accepted"))
+        for entry in files:
+            target = safe_project_path(run_dir, entry["path"])
+            target.write_text(context.read_text_artifact(entry["artifact"]), encoding="utf-8")
         final_result = {
             "passed": passed,
+            "generation_mode": ("resumed" if resume_from else "fresh") if project["id"] == "rv32i5_ooo" else "standard",
             "stage": final_report.get("stage"),
             "summary": _report_summary(final_report),
             "metrics": final_report.get("metrics") or {},
@@ -490,6 +681,7 @@ def run_agent(
             "parser_rounds": parser_result.get("rounds", 1),
             "supplements": parser_result.get("supplements", []),
             "tester_attempts": tester_attempts,
+            "optimization_candidates": candidates,
             "resumed_from": resume_from,
             "cpu_capability": final_report.get("cpu_capability"),
             "test_suites": final_report.get("test_suites"),
@@ -522,6 +714,7 @@ def run_agent(
             project_id=project["id"],
         )
         payload["duration_ms"] = round((time.perf_counter() - started_clock) * 1000)
+        payload["run_summary"]["duration_ms"] = payload["duration_ms"]
         _write_json(run_dir / "events.json", payload)
         try:
             _write_metadata(
@@ -570,6 +763,7 @@ def run_agent(
             project_id=project["id"],
         )
         payload["duration_ms"] = round((time.perf_counter() - started_clock) * 1000)
+        payload["run_summary"]["duration_ms"] = payload["duration_ms"]
         _write_json(run_dir / "events.json", payload)
         try:
             _write_metadata(
@@ -611,6 +805,7 @@ def run_agent(
         project_id=project["id"],
     )
     payload["duration_ms"] = round((time.perf_counter() - started_clock) * 1000)
+    payload["run_summary"]["duration_ms"] = payload["duration_ms"]
     _write_json(run_dir / "events.json", payload)
     _write_metadata(
         run_dir,

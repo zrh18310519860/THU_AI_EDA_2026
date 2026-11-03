@@ -1,3 +1,4 @@
 openai>=1.0.0
 httpx[socks]>=0.24.0
 verilog-pad-analyzer==0.0.7
+vcdvcd==2.6.0

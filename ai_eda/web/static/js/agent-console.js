@@ -82,7 +82,7 @@ function updateFollowLiveButton() {
 
 function agentDetailTabs(event) {
   if (!event) return [];
-  const isModelStep = ["parser", "planner", "coder", "modifier"].includes(event.node_id);
+  const isModelStep = ["parser", "planner", "coder", "diagnoser", "modifier"].includes(event.node_id);
   if (event.node_id === "tester") {
     return [{ id: "tools", label: "Tool output" }];
   }
@@ -505,6 +505,8 @@ function renderAgentEventDetail() {
       ["DURATION", formatDuration(event.duration_ms)],
     ];
     if (eventOutputTokens(event) > 0) items.push(["OUT TOKENS", formatOutputTokens(event)]);
+    if (event.model_parameters) items.push(["MODEL", formatModelParameters(event.model_parameters)]);
+    if (event.call_index != null) items.push(["API TOKENS", formatUsage(event.usage || {})]);
     items.forEach(([key, value, tone]) => {
       const chip = document.createElement("span");
       chip.className = `meta-chip ${tone || ""}`;

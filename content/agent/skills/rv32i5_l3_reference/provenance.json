@@ -1,0 +1,20 @@
+{
+  "source_run": "agent-20261027T111341960911",
+  "tested_attempt": 4,
+  "verification": "teacher L3 plus supplemental, independently retested",
+  "disclosure": "Reused baseline from a prior human-assisted agent run. Not independent from-scratch generation.",
+  "sha256": {
+    "rtl/branch_predictor.sv": "28008768291fdde88fbb8826e096573b8b295e128eb6efaea26b27d8e61cf103",
+    "rtl/dcache.sv": "0e727b94feb9a1d6842caeb455d7de23051c60bcb753b7fda069c9b464bc6a05",
+    "rtl/decode_unit.sv": "6e8bae3984847c2daccba77d045580ce0730885ae14c123c5da44a66345cfa14",
+    "rtl/execute_unit.sv": "edc29a66f9080d2d9e73133fae2271f190e9e2707da87b74d27c59f8d89d7457",
+    "rtl/frontend_unit.sv": "22bb37c64d67a4f3be7684aa1a944aeed51d4f8fa59bd82847b4904f8b8c5992",
+    "rtl/icache.sv": "ae991a7e0b3afd147152a624584105c73b4f61f11972372b0f71d381d7e0afd5",
+    "rtl/issue_queue.sv": "38a6152e8f0cac3a9b7697835d3e684ac72865c727c7c2dea1235eab87b0a221",
+    "rtl/load_store_unit.sv": "25037af6180b4e4a177122c5c21a2ca1d4ff6a51d70f37afb835df02c739a3bd",
+    "rtl/rename_unit.sv": "8457bc5cd49f23f8c1ba6e74893c580ce5c35f294dcb51588f121faf880b1a92",
+    "rtl/reorder_buffer.sv": "b6b01fd2554a9d3855ca5f250c32a4963d9cca9286690192beb372f9e14e71f2",
+    "rtl/rv32i5.sv": "48f70847613c570907e24222066463c1a27cd9b12cdc80c2d23a7b029a97a354"
+  },
+  "plan_sha256": "1e76ab50e74e2aaa1298e02c92d83dd965e5e0173305b747d780dc40bfd56fc0"
+}

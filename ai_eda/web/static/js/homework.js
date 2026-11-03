@@ -132,6 +132,7 @@ function renderHomeworkRun(run) {
   const report = run.report || {};
   $("#hw-run-id-label").textContent = run.run_id;
   renderHomeworkResponse();
+  renderRunMetadata($("#hw-run-metadata"), run.run_summary || run.metadata);
   renderHomeworkReport(report);
   if (!report.stage) {
     if (report.metrics) {
@@ -170,10 +171,14 @@ function renderHomeworkRuns(runs = []) {
     item.className = "run-item";
     const open = document.createElement("button");
     open.className = "run-open-button";
-    const status = run.passed === true ? "PASS" : run.passed === false ? "FAIL" : "Unverified";
+    const status = run.generation_status === "failed" ? "Generation failed" : run.passed === true ? "PASS" : run.passed === false ? "FAIL" : "Unverified";
     const stage = run.stage ? ` · ${escapeHtml(run.stage)}` : "";
     const preview = run.prompt_preview ? `<span class="run-prompt-preview">${escapeHtml(run.prompt_preview)}</span>` : "";
     open.innerHTML = `${escapeHtml(run.run_id)}<span>${status}${stage}</span>${preview}`;
+    [formatModelParameters(run), formatUsage(run),
+      `To TB: ${run.duration_ms == null ? "Not recorded / pending" : formatDuration(run.duration_ms)} · Generation: ${run.generation_duration_ms == null ? "Not recorded" : formatDuration(run.generation_duration_ms)}`,
+      `Area: ${run.area == null ? "N/A" : Number(run.area).toFixed(3)} · Power: ${run.total_power_w == null ? "N/A" : (Number(run.total_power_w) * 1e6).toFixed(3) + " µW"}`,
+    ].forEach((text) => { const line = document.createElement("span"); line.textContent = text; open.append(line); });
     open.addEventListener("click", () => openHomeworkRun(run.run_id));
     const remove = document.createElement("button");
     remove.className = "run-delete-button";
@@ -236,6 +241,7 @@ function clearHomeworkResultView() {
   $("#hw-run-id-label").textContent = "Not run yet";
   renderHomeworkResponse();
   renderHomeworkReport({});
+  renderRunMetadata($("#hw-run-metadata"), null);
   updateHomeworkActions();
 }
 
@@ -319,6 +325,9 @@ async function generateHomework() {
     }, (event) => {
       if (event.type === "start") {
         $("#hw-run-id-label").textContent = event.run_id;
+      } else if (event.type === "restart") {
+        beginStreamDisplay("homework");
+        setHomeworkStatus(event.reason, "running");
       } else if (event.type === "reasoning") {
         appendStreamDelta("reasoning", event.text);
       } else if (event.type === "answer") {
@@ -326,6 +335,7 @@ async function generateHomework() {
       } else if (event.type === "done") {
         generated = event.run;
       } else if (event.type === "error") {
+        if (event.run) { generated = event.run; renderHomeworkRun(event.run); }
         throw new Error(event.error);
       }
     });
@@ -338,6 +348,7 @@ async function generateHomework() {
     endStreamDisplay();
     setHomeworkStatus(error.message, "error");
     showToast(error.message, "error");
+    await loadHomeworkRuns().catch(() => {});
     if (state.homework.lastRun) {
       renderHomeworkResponse();
     } else {

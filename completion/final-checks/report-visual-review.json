@@ -1,0 +1,80 @@
+{
+  "report": "D:\\大三\\人工智能赋能数字电路设计\\作业提交要求与报告模板_L3自主探索完成版.docx",
+  "report_sha256": "260df301f056b4952e377143cb4546990b7ea34b30042cfda3b35825ebc86488",
+  "reviewed_at": "2026-11-03T10:47:28.216Z",
+  "page_count": 16,
+  "all_pages_visually_inspected": true,
+  "checks": [
+    "No clipping, overlap or missing glyphs",
+    "Headers and repeating table headers are readable",
+    "Fresh and resumed experiments are distinguished",
+    "Unknown API usage is explicitly marked",
+    "AES template content and section geometry preserved"
+  ],
+  "pages": [
+    {
+      "page": 1,
+      "sha256": "6d0d03a5b8e871dfb3269ba4402e3d687c450a80fbb8d882de9786b66c72b4f5"
+    },
+    {
+      "page": 2,
+      "sha256": "b047df250ceb3cdca25c62149f223d819409b341c9a67a4b3b12ebcd16615e11"
+    },
+    {
+      "page": 3,
+      "sha256": "fedab813fb26b219dbd9ad7a7b440c1c10ed86c9733422a4d5ca8239951b41b6"
+    },
+    {
+      "page": 4,
+      "sha256": "33f667b162c54acd35ea16f597e886646f68bb992b2cc030b8b9c053a0574223"
+    },
+    {
+      "page": 5,
+      "sha256": "75286191d7278f9203eb95ad8e4bb7f3e65162cf46ba1a767a6e31e46338e914"
+    },
+    {
+      "page": 6,
+      "sha256": "ec4516d52300ea630822c4a2f35298ebca06ba95dab72f8ee32f1d7dd1a6b384"
+    },
+    {
+      "page": 7,
+      "sha256": "f8ebefe19e7853d8f7630be1515dbcce774b5e6d8cc1f0ad0093587620ae6324"
+    },
+    {
+      "page": 8,
+      "sha256": "4f0410070f71070bc3ebecf7d8274b559212e3714c712a9164f0639cd3a1dee9"
+    },
+    {
+      "page": 9,
+      "sha256": "260b1aed794cf72583f55737646e96106f442ec1619c980ef4a0f73678051cf4"
+    },
+    {
+      "page": 10,
+      "sha256": "943907a86f718d4cffe817124e8fe5f4d858b991cda73cbad4ecc87fc3709917"
+    },
+    {
+      "page": 11,
+      "sha256": "dec13f2692b4033b08d3c7a6204bf5d8d25bafeaef0b65b2762668b2ff69d902"
+    },
+    {
+      "page": 12,
+      "sha256": "e4bf21a9f52ffdb57d3944dffe57da651fa8eafcf03ebe8dc5223a0e7b4a3329"
+    },
+    {
+      "page": 13,
+      "sha256": "25ccdf8fe127f32bd66095525ae7c0244670cac3f5a56a057472b630d73150da"
+    },
+    {
+      "page": 14,
+      "sha256": "4b301425ea4cae9e0a1094e64354b6c0ac77bcb15aa6b807119ca2c1b80a3128"
+    },
+    {
+      "page": 15,
+      "sha256": "c27b7dbca66a845d002d441ed249bc0a6ef0f79278c74f67285310d9a8e8e0d1"
+    },
+    {
+      "page": 16,
+      "sha256": "c254e089cab718011714c66599c307cb3f2f3ce9729e6321c90fc7c028449406"
+    }
+  ]
+}

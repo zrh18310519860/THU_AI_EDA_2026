@@ -1,0 +1,66 @@
+{
+  "selected_run": "agent-20261103T102631117220",
+  "selected_report": "tester-05/test_report.json",
+  "selected_mode": "resumed",
+  "functional_passed": false,
+  "ppa_passed": false,
+  "empty_project_origin": "agent-20261103T093826088665",
+  "chain": [
+    {
+      "run_id": "agent-20261103T093826088665",
+      "mode": "fresh",
+      "status": "failed",
+      "model_generated_files": 11,
+      "accepted_patches_verified": 3
+    },
+    {
+      "run_id": "agent-20261103T102631117220",
+      "mode": "resumed",
+      "status": "failed",
+      "parent": "agent-20261103T093826088665",
+      "parent_tested_attempt": 4,
+      "seed_matches_parent": true,
+      "accepted_patches_verified": 4,
+      "patch_checks": [
+        {
+          "step": 3,
+          "attempt": 1,
+          "changed_paths": [
+            "rtl/icache.sv"
+          ],
+          "fingerprint": "b2418e881f0b859c73a719973dab1d696ee252e68c47c5381aa3796b3f8d42f1",
+          "model_response": "step-03-modifier/call-008/raw_response.txt"
+        },
+        {
+          "step": 6,
+          "attempt": 2,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "94debcfb4846d81650be98ea918dcd770c6a4c6b102b66de220994c5c78f7600",
+          "model_response": "step-06-modifier/call-016/raw_response.txt"
+        },
+        {
+          "step": 9,
+          "attempt": 3,
+          "changed_paths": [
+            "rtl/execute_alu.sv"
+          ],
+          "fingerprint": "4eb2ef40fac81f5a0982c64d5e0190bfe4fc69997a270ffed68175dd09dcbe29",
+          "model_response": "step-09-modifier/call-021/raw_response.txt"
+        },
+        {
+          "step": 12,
+          "attempt": 4,
+          "changed_paths": [
+            "rtl/execute_alu.sv"
+          ],
+          "fingerprint": "c13caf1f4ac27df929f8ca8c869447baac942ba2c9d1bbd488b1b23af7a92a0c",
+          "model_response": "step-12-modifier/call-030/raw_response.txt"
+        }
+      ]
+    }
+  ],
+  "manual_rtl_seed_used": false,
+  "meaning": "Explicit resumed runs remain resumed. Initial RTL and every accepted patch are tied to actual model answers; every resume seed equals the declared immutable parent snapshot."
+}

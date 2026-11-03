@@ -1,0 +1,222 @@
+{
+  "selected_run": "agent-20261103T081144962755",
+  "selected_report": "tester-17/test_report.json",
+  "selected_mode": "resumed",
+  "functional_passed": true,
+  "ppa_passed": true,
+  "empty_project_origin": "agent-20261103T071100178309",
+  "chain": [
+    {
+      "run_id": "agent-20261103T071100178309",
+      "mode": "fresh",
+      "status": "failed",
+      "model_generated_files": 11,
+      "accepted_patches_verified": 9
+    },
+    {
+      "run_id": "agent-20261103T075214050264",
+      "mode": "resumed",
+      "status": "cancelled",
+      "parent": "agent-20261103T071100178309",
+      "parent_tested_attempt": 10,
+      "seed_matches_parent": true,
+      "accepted_patches_verified": 2,
+      "patch_checks": [
+        {
+          "step": 3,
+          "attempt": 1,
+          "changed_paths": [
+            "rtl/fetch_frontend.sv"
+          ],
+          "fingerprint": "0fd071e76280b684a9350fbb7aa87d5a9c8852cdb23bc8ef007c8f54353ea7ac",
+          "model_response": "step-03-modifier/call-004/raw_response.txt"
+        },
+        {
+          "step": 6,
+          "attempt": 2,
+          "changed_paths": [
+            "rtl/fetch_frontend.sv"
+          ],
+          "fingerprint": "77ca849b69f8174932425d72067ccaedd7e0841432434d5c443eeb5ea22111a8",
+          "model_response": "step-06-modifier/call-007/raw_response.txt"
+        }
+      ]
+    },
+    {
+      "run_id": "agent-20261103T081144962755",
+      "mode": "resumed",
+      "status": "passed",
+      "parent": "agent-20261103T075214050264",
+      "parent_tested_attempt": 3,
+      "seed_matches_parent": true,
+      "accepted_patches_verified": 18,
+      "patch_checks": [
+        {
+          "step": 3,
+          "attempt": 1,
+          "changed_paths": [
+            "rtl/reorder_buffer.sv"
+          ],
+          "fingerprint": "c765d707dc7f682a110b4f92d2ba5d65f362cc74fd57907f8cf10f8556c7623c",
+          "model_response": "step-03-modifier/call-008/raw_response.txt"
+        },
+        {
+          "step": 6,
+          "attempt": 2,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "8da462c24baa74c01fcf5ee8675aa83a288fe8b21cbbe77ac110194fba42ed7f",
+          "model_response": "step-06-modifier/call-012/raw_response.txt"
+        },
+        {
+          "step": 9,
+          "attempt": 3,
+          "changed_paths": [
+            "rtl/fetch_frontend.sv"
+          ],
+          "fingerprint": "03a7c781abd7eea6556353afa6683a1b92f01bf0a45e906f068ae968ac88ad92",
+          "model_response": "step-09-modifier/call-015/raw_response.txt"
+        },
+        {
+          "step": 12,
+          "attempt": 4,
+          "changed_paths": [
+            "rtl/fetch_frontend.sv"
+          ],
+          "fingerprint": "96220d5c69971a50c8d4005f9b3374362a58cfbf079069ee0fcca373a168415c",
+          "model_response": "step-12-modifier/call-020/raw_response.txt"
+        },
+        {
+          "step": 15,
+          "attempt": 5,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "e93436dce11d9ee282e459229d7d62caaed911773ddbdf777b0b0cc5feec2db9",
+          "model_response": "step-15-modifier/call-028/raw_response.txt"
+        },
+        {
+          "step": 18,
+          "attempt": 6,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "16d4b096493b59d28f65370a40d480f59fa136cb8b18acdbaf7657b14c73f6f6",
+          "model_response": "step-18-modifier/call-030/raw_response.txt"
+        },
+        {
+          "step": 21,
+          "attempt": 7,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "8c4bdc27d4518d57545c58188d0984912064aa1bbfa3c75d1080183e831fe798",
+          "model_response": "step-21-modifier/call-035/raw_response.txt"
+        },
+        {
+          "step": 24,
+          "attempt": 8,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "e9b7191e7dffb6a5db3279d3b2b702aeea09890d322b8fe972508ce6f2029b06",
+          "model_response": "step-24-modifier/call-037/raw_response.txt"
+        },
+        {
+          "step": 27,
+          "attempt": 9,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "911e4e6eda85bb8fae2c508ca5ebbeaa8a3bcd41ca689a480566a67cc5dcea83",
+          "model_response": "step-27-modifier/call-039/raw_response.txt"
+        },
+        {
+          "step": 30,
+          "attempt": 10,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "c86ca326e2a0237e204b13235fecab0dc683d5d43e280fce9b9a5ca985b1a4f7",
+          "model_response": "step-30-modifier/call-042/raw_response.txt"
+        },
+        {
+          "step": 33,
+          "attempt": 11,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "0fc36aa8d7b32f0afe2d0de2379a0e3e42a4da64bbfa83eeb0e2b81ed924bca0",
+          "model_response": "step-33-modifier/call-044/raw_response.txt"
+        },
+        {
+          "step": 36,
+          "attempt": 12,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "7d2480d06c64151896d236c7ca42f8fcebd61a5f92bc447f71395b97e6061fd3",
+          "model_response": "step-36-modifier/call-049/raw_response.txt"
+        },
+        {
+          "step": 39,
+          "attempt": 13,
+          "changed_paths": [
+            "rtl/rename_unit.sv",
+            "rtl/reorder_buffer.sv"
+          ],
+          "fingerprint": "2fa616fc7dbc09cf0ce7568d688d52a8bb7e7b269df2c35bf8fcae5b2bc54a74",
+          "model_response": "step-39-modifier/call-053/raw_response.txt"
+        },
+        {
+          "step": 42,
+          "attempt": 14,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "f7399bb43d14a3ac4943f757870f47f81d62f4564466a747cc660941a58891f3",
+          "model_response": "step-42-modifier/call-055/raw_response.txt"
+        },
+        {
+          "step": 45,
+          "attempt": 15,
+          "changed_paths": [
+            "rtl/icache.sv"
+          ],
+          "fingerprint": "725015725035646eeee57ba9332c83fbedc84ea660fd2c45829cc648af6dfeea",
+          "model_response": "step-45-modifier/call-057/raw_response.txt"
+        },
+        {
+          "step": 50,
+          "attempt": 16,
+          "changed_paths": [
+            "rtl/rename_unit.sv"
+          ],
+          "fingerprint": "ab98a0f9ad213edcf2675e9599493685db064bf51599bab2f3346db4ce4289c2",
+          "model_response": "step-50-modifier/call-064/raw_response.txt"
+        },
+        {
+          "step": 53,
+          "attempt": 17,
+          "changed_paths": [
+            "rtl/dcache.sv"
+          ],
+          "fingerprint": "a225022442d1bcda7fa338e7eb2608df52f4967176685d5e0c0a12e21da07e08",
+          "model_response": "step-53-modifier/call-066/raw_response.txt"
+        },
+        {
+          "step": 56,
+          "attempt": 18,
+          "changed_paths": [
+            "rtl/dcache.sv"
+          ],
+          "fingerprint": "6e30f736ce2140f3f32f1b69895431ea37902b970454b349e132f69fc16d22b4",
+          "model_response": "step-56-modifier/call-068/raw_response.txt"
+        }
+      ]
+    }
+  ],
+  "manual_rtl_seed_used": false,
+  "meaning": "Explicit resumed runs remain resumed. Initial RTL and every accepted patch are tied to actual model answers; every resume seed equals the declared immutable parent snapshot."
+}

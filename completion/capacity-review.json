@@ -1,0 +1,103 @@
+{
+  "run_id": "agent-20261103T081144962755",
+  "selected_report": "tester-17/test_report.json",
+  "selected_capacity_preserved": true,
+  "candidates": [
+    {
+      "report": "tester-01/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-02/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-03/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-04/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-05/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-06/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-07/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-08/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-09/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-10/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-11/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-12/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-13/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-14/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-15/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-16/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-17/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-18/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    },
+    {
+      "report": "tester-19/test_report.json",
+      "checkpoint_capacity_preserved": true,
+      "violations": []
+    }
+  ],
+  "scope": "Literal checkpoint array capacity relative to the generated seed. This review does not prove overall CPU correctness or general architectural capacities. Original test results are unchanged."
+}

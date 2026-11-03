@@ -175,7 +175,7 @@ function renderAgentComparison(runs) {
   const table = document.createElement("table");
   table.className = "compare-table";
   const colgroup = document.createElement("colgroup");
-  ["23%", "9%", "7%", "9%", "9%", "15%", "18%", "10%"].forEach((width) => {
+  ["16%", "20%", "7%", "6%", "8%", "14%", "9%", "14%", "6%"].forEach((width) => {
     const col = document.createElement("col");
     col.style.width = width;
     colgroup.append(col);
@@ -183,10 +183,10 @@ function renderAgentComparison(runs) {
   table.append(colgroup);
   const head = document.createElement("thead");
   const headRow = document.createElement("tr");
-  ["Run", "Result", "Attempts", "Duration", "OUT TOKENS", "CPU / CPI", "Area / Power", "Action"].forEach((label, index) => {
+  ["Run", "Model / Parameters", "Result", "Attempts", "Duration", "API TOKENS (total / in / out)", "CPU / CPI", "Area / Power", "Action"].forEach((label, index) => {
     const th = document.createElement("th");
     th.textContent = label;
-    if (index === 7) th.className = "compare-action";
+    if (index === 8) th.className = "compare-action";
     else if (index >= 2) th.className = "compare-num";
     headRow.append(th);
   });
@@ -205,6 +205,7 @@ function renderAgentComparison(runs) {
       return td;
     };
     addCell(run.run_id.replace(/^agent-/, ""), "compare-design");
+    addCell(formatModelParameters(run), "compare-parameters");
     const statusCell = document.createElement("td");
     const [label, tone] = statusMeta(run.status);
     const badge = document.createElement("span");
@@ -214,7 +215,7 @@ function renderAgentComparison(runs) {
     tr.append(statusCell);
     addCell(`${run.attempts ?? 1}`, "compare-num");
     addCell(formatDuration(run.duration_ms), "compare-num");
-    addCell((run.output_tokens ?? run.total_tokens) ? `${run.output_tokens ?? run.total_tokens}` : "—", "compare-num");
+    addCell(formatUsage(run), "compare-num compare-usage");
     const level = run.cpu_level === null || run.cpu_level === undefined ? "—" : `L${run.cpu_level}`;
     const cpi = run.cpu_cpi === null || run.cpu_cpi === undefined ? "—" : Number(run.cpu_cpi).toFixed(3);
     addCell(`${level} / ${cpi}`, "compare-num compare-metric");
@@ -282,6 +283,7 @@ function stopRunTimer() {
 }
 
 function updateAgentRunStatus(job) {
+  renderRunMetadata($("#agent-run-metadata"), state.agent.run?.run_summary || null);
   const status = job?.status || (state.agent.run?.status ?? "ready");
   const level = job?.error ? "error" : ["running", "cancelling", "waiting_input"].includes(status) ? "running" : "";
   if (status === "waiting_input") {
@@ -303,8 +305,7 @@ function updateAgentRunStatus(job) {
   } else if (state.agent.run) {
     const result = state.agent.run;
     const [label] = statusMeta(result.status);
-    const tokens = totalTokens(result.events);
-    $("#agent-run-status").textContent = `${label} · ${result.run_id} · ${formatDuration(result.duration_ms)}${tokens ? ` · ${tokens} tok` : ""}`;
+    $("#agent-run-status").textContent = `${label} · ${result.run_id} · ${formatDuration(result.duration_ms)} · ${formatUsage(result.usage || {})}`;
   } else {
     $("#agent-run-status").textContent = "Ready · click Run Agent";
   }
@@ -395,8 +396,10 @@ async function runAgent(resumeFrom = null) {
         thinking: $("#agent-thinking").checked,
         temperature: Number($("#agent-temperature").value),
         max_tokens: Number($("#agent-max-tokens").value || 60000),
-        max_calls: Number($("#agent-max-calls")?.value || 100),
-        max_repair_attempts: Number($("#agent-max-repair-attempts")?.value || 8),
+        max_calls: Number($("#agent-max-calls")?.value || 250),
+        max_repair_attempts: Number($("#agent-max-repair-attempts")?.value || 40),
+        optimization_rounds: Number($("#agent-optimization-rounds")?.value ?? 3),
+        l3_mode: "fresh",
         reasoning_effort: $("#agent-reasoning-effort").value,
         planner_skill: Boolean($("#agent-planner-skill")?.checked),
         resume_from: resumeId,
@@ -553,7 +556,9 @@ function pickEventForResult(result) {
     const failed = [...events].reverse().find((event) => event.report && !event.report.passed);
     if (failed) return failed.step;
   }
-  const verify = [...events].reverse().find((event) => event.report);
+    const chosen = result.result?.optimization_candidates?.filter((c) => c.selected).at(-1);
+    const verify = chosen ? events.find((event) => event.node_id === "tester" && event.attempt === chosen.attempt)
+      : [...events].reverse().find((event) => event.report);
   return verify?.step ?? events[events.length - 1]?.step ?? null;
 }
 

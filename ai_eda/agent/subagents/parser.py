@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from ai_eda.agent.skills.rv32i5_contract import planner_context
 
 from .base import SubAgent
 from .common import MAX_PARSER_ROUNDS, PARSER_SYSTEM_PROMPT, extract_json_payload
@@ -20,7 +21,7 @@ class ParserAgent(SubAgent):
         if supplements:
             parts.append("## 用户补充\n\n" + "\n\n".join(supplements))
         if addendum:
-            parts.append("## Parser 补充与修正（优先于上文冲突内容）\n\n" + addendum)
+            parts.append("## Parser 实现假设（不得覆盖教师 Spec，冲突时以教师条款为准）\n\n" + addendum)
         return "\n\n".join(part for part in parts if part)
 
     def run(self, input_handoff: Path) -> Path:
@@ -50,6 +51,7 @@ class ParserAgent(SubAgent):
                 f"{supplement_text}\n\n"
                 "已有 Parser 补充/修正：\n"
                 f"{addendum or '（无）'}\n\n"
+                + planner_context((self.runtime.options.get("project") or {}).get("id")) + "\n"
                 "请判断是否充分；只返回补充/修正，不要重写或缩短原 Spec。"
                 "请只返回约定的 JSON 对象。"
             )

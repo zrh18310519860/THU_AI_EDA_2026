@@ -35,11 +35,19 @@
       "y": 200
     },
     {
+      "id": "diagnoser",
+      "type": "model",
+      "title": "05 · Diagnoser",
+      "prompt": "Group failures, choose relevant modules, produce a bounded repair brief with source hashes.",
+      "x": 960,
+      "y": 8
+    },
+    {
       "id": "modifier",
       "type": "model",
-      "title": "05 · Modifier",
+      "title": "06 · Patch Agent",
       "prompt": "Repair RTL from the Tester failure report, then return to Tester for verification.",
-      "x": 960,
+      "x": 656,
       "y": 8,
       "retry": {
         "target": "tester",
@@ -62,6 +70,10 @@
     },
     {
       "from": "tester",
+      "to": "diagnoser"
+    },
+    {
+      "from": "diagnoser",
       "to": "modifier"
     }
   ]

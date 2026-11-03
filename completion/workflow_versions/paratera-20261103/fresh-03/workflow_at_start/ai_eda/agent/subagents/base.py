@@ -1,0 +1,330 @@
+"""固定流水线的子 Agent 基类与运行上下文。
+
+交接记录只保存小型消息与 artifact 引用；RTL、Spec、Plan 和测试报告均落盘一次，
+由接收方按引用读取，避免在 handoff 中复制大文本。
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable
+
+from ai_eda.model.client import RTL_SYSTEM_PROMPT, ModelClient
+from ai_eda.token_metrics import estimate_output_tokens, output_tokens as reported_output_tokens
+
+
+class RunContext:
+    def __init__(
+        self,
+        *,
+        run_dir: Path,
+        options: dict[str, Any],
+        begin_event: Callable[..., dict[str, Any]],
+        finish_event: Callable[..., None],
+        persist: Callable[..., None],
+        emit: Callable[[dict[str, Any]], None],
+        check_cancel: Callable[[], None],
+        request_input: Callable[[dict[str, Any]], str] | None,
+        max_calls: int = 100,
+    ) -> None:
+        self.run_dir = run_dir
+        self.options = options
+        self.begin_event = begin_event
+        self.finish_event = finish_event
+        self.persist = persist
+        self.emit = emit
+        self.check_cancel = check_cancel
+        self.request_input = request_input
+        self.max_calls = int(max_calls)
+        self.model_calls = 0
+        self.handoffs_dir = run_dir / "handoffs"
+        self.handoffs_dir.mkdir(parents=True, exist_ok=True)
+        self.artifacts_dir = run_dir / "artifacts"
+        self.artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    def make_client(self, overrides: dict[str, Any] | None = None) -> ModelClient:
+        model_keys = ("temperature", "max_tokens", "thinking", "reasoning_effort")
+        options = {key: self.options[key] for key in model_keys if key in self.options}
+        if overrides:
+            options.update({key: value for key, value in overrides.items() if key in model_keys})
+        return ModelClient(**options)
+
+    def call_model(
+        self,
+        event: dict[str, Any],
+        prompt: str,
+        system_prompt: str,
+        *,
+        model_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """单轮模型调用：内部包装成 system + user 的消息历史。"""
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": prompt},
+        ]
+        return self.call_model_messages(
+            event, messages, artifact_prompt=prompt, model_options=model_options
+        )
+
+    def call_model_messages(
+        self, event, messages, *, artifact_prompt=None, model_options=None
+    ):
+        try:
+            result = self._call_model_messages(event, messages, artifact_prompt=artifact_prompt,
+                                              model_options=model_options)
+            if result.get("finish_reason") != "length" or not (event.get("model_parameters") or {}).get("thinking"):
+                return result
+        except RuntimeError:
+            records = event.get("model_calls") or []
+            if (not records or records[-1].get("finish_reason") != "length"
+                    or event.get("response") or not event.get("reasoning")):
+                raise
+        # Preserve the exhausted call; use bounded notes to emit a complete artifact.
+        fallback = dict(model_options or {})
+        fallback.update(thinking=False, max_tokens=32000)
+        event["reasoning_budget_fallback"] = True
+        messages = list(messages) + [{"role": "user", "content":
+            "The output budget was exhausted before a complete final artifact. Produce the requested "
+            "COMPLETE artifact from its beginning now, with no explanation or further analysis. "
+            "Resolve remaining choices consistently with the spec. Bounded design notes:\n"
+            + str(event.get("reasoning") or "")[-24000:]}]
+        return self._call_model_messages(event, messages, model_options=fallback)
+
+    def _call_model_messages(
+        self,
+        event: dict[str, Any],
+        messages: list[dict[str, str]],
+        *,
+        artifact_prompt: str | None = None,
+        model_options: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """使用已有消息历史做模型调用，支持 Modifier 等子 Agent 的多轮上下文。"""
+        if self.max_calls > 0 and self.model_calls >= self.max_calls:
+            raise ValueError(
+                f"Agent 模型调用次数已达到上限（{self.max_calls} 次），"
+                "请提高调用上限或缩小任务规模。"
+            )
+        self.model_calls += 1
+        event["call_index"] = self.model_calls
+        event["conversation_messages"] = len(messages)
+        client = self.make_client(model_options)
+        event["model_parameters"] = client.parameters()
+        event["model_call_attempted"] = True
+        call_dir = self.run_dir / f"step-{event['step']:02d}-{event['node_id']}" / f"call-{self.model_calls:03d}"
+        call_dir.mkdir(parents=True, exist_ok=False)
+        (call_dir / "prompt.md").write_text(artifact_prompt or str(messages[-1].get("content") or ""), encoding="utf-8")
+        (call_dir / "conversation.json").write_text(json.dumps(messages, ensure_ascii=False, indent=2), encoding="utf-8")
+        event.setdefault("model_call_artifacts", []).append(self.artifact_ref(call_dir))
+        all_calls = event.setdefault("model_calls", [])
+        answer_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        usage: dict[str, Any] | None = None
+        finish_reason: str | None = None
+        last_emit = 0.0
+        last_persist = 0.0
+        event["streaming"] = True
+        event["reasoning"] = ""
+        event["response"] = ""
+        event["output_tokens"] = None
+        stream = client.stream_chat_detail(messages)
+        # Keep records from every validation retry, including a failed stream.
+        def tracked_stream():
+            try:
+                yield from stream
+            finally:
+                all_calls.extend(client.request_records)
+                event["model_duration_ms"] = sum(item.get("duration_ms", 0) for item in all_calls)
+                event["streaming"] = False
+                (call_dir / "raw_response.txt").write_text("".join(answer_parts), encoding="utf-8")
+                (call_dir / "reasoning.txt").write_text("".join(reasoning_parts), encoding="utf-8")
+                (call_dir / "request_records.json").write_text(
+                    json.dumps(client.request_records, ensure_ascii=False, indent=2), encoding="utf-8")
+        for chunk in tracked_stream():
+            self.check_cancel()
+            kind = chunk.get("type")
+            if kind == "restart":
+                answer_parts.clear()
+                reasoning_parts.clear()
+                usage, finish_reason = None, None
+                event.setdefault("stream_restarts", []).append(chunk.get("reason"))
+            elif kind == "reasoning":
+                reasoning_parts.append(str(chunk.get("text") or ""))
+            elif kind == "answer":
+                answer_parts.append(str(chunk.get("text") or ""))
+            elif kind == "done":
+                answer_parts = [str(chunk.get("answer") or "")]
+                reasoning_parts = [str(chunk.get("reasoning") or "")]
+                usage = chunk.get("usage")
+                finish_reason = chunk.get("finish_reason")
+            event["reasoning"] = "".join(reasoning_parts)
+            event["response"] = "".join(answer_parts)
+            event["estimated_output_tokens"] = estimate_output_tokens(
+                event["response"] + (event["reasoning"] or "")
+            )
+            now = time.monotonic()
+            if now - last_emit >= 0.12:
+                self.emit(json.loads(json.dumps(event, ensure_ascii=False)))
+                last_emit = now
+            if now - last_persist >= 1.0:
+                self.persist()
+                last_persist = now
+        self.check_cancel()
+        answer = "".join(answer_parts)
+        reasoning = "".join(reasoning_parts) or None
+        result = {
+            "answer": answer,
+            "reasoning": reasoning,
+            "usage": usage,
+            "finish_reason": finish_reason,
+        }
+        artifact_dir = self.run_dir / f"step-{event['step']:02d}-{event['node_id']}"
+        artifact_dir.mkdir(exist_ok=True)
+        prompt_for_artifact = artifact_prompt or str(messages[-1].get("content") or "")
+        (artifact_dir / "prompt.md").write_text(prompt_for_artifact, encoding="utf-8")
+        (artifact_dir / "conversation.json").write_text(
+            json.dumps(messages, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (artifact_dir / "raw_response.txt").write_text(answer, encoding="utf-8")
+        if reasoning:
+            (artifact_dir / "reasoning.txt").write_text(reasoning, encoding="utf-8")
+        event["response"] = answer
+        event["raw_response"] = answer
+        event["reasoning"] = reasoning
+        event["usage"] = usage
+        event["finish_reason"] = finish_reason
+        event["model_duration_ms"] = sum(item.get("duration_ms", 0) for item in all_calls)
+        event["output_tokens"] = reported_output_tokens(usage, answer + (reasoning or ""))
+        event["streaming"] = False
+        return result
+
+    def mark_waiting(self, event: dict[str, Any], request: dict[str, Any]) -> None:
+        event["status"] = "waiting_input"
+        event["input_request"] = request
+        self.persist()
+        self.emit(json.loads(json.dumps(event, ensure_ascii=False)))
+
+    def artifact_ref(self, path: Path) -> str:
+        """把运行目录内的文件转换为可在 handoff 中传递的相对引用。"""
+        resolved = path.resolve()
+        root = self.run_dir.resolve()
+        if root not in resolved.parents:
+            raise ValueError("artifact 必须位于当前运行目录")
+        return str(resolved.relative_to(root))
+
+    def _resolve_ref(self, reference: str, *, directory: Path | None = None) -> Path:
+        if not isinstance(reference, str) or not reference.strip():
+            raise ValueError("artifact 引用不能为空")
+        root = (directory or self.run_dir).resolve()
+        path = (root / reference).resolve()
+        if root not in path.parents:
+            raise ValueError("artifact 引用越出运行目录")
+        return path
+
+    def write_text_artifact(self, name: str, content: str) -> str:
+        path = self._resolve_ref(name, directory=self.artifacts_dir)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        return self.artifact_ref(path)
+
+    def write_json_artifact(self, name: str, payload: Any) -> str:
+        return self.write_text_artifact(name, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+
+    def read_text_artifact(self, reference: str) -> str:
+        path = self._resolve_ref(reference)
+        if not path.is_file():
+            raise FileNotFoundError(f"artifact 不存在：{reference}")
+        return path.read_text(encoding="utf-8")
+
+    def read_json_artifact(self, reference: str) -> Any:
+        try:
+            return json.loads(self.read_text_artifact(reference))
+        except json.JSONDecodeError as error:
+            raise ValueError(f"artifact 不是合法 JSON：{reference}") from error
+
+    def write_handoff(
+        self,
+        source: str,
+        target: str,
+        payload: dict[str, Any],
+        *,
+        attempt: int | None = None,
+        revision: int | None = None,
+        label: str = "",
+    ) -> Path:
+        """写出不可变交接消息；大内容必须通过 payload.artifacts 传递引用。"""
+        if not isinstance(payload, dict):
+            raise ValueError("handoff payload 必须是对象")
+        edge_id = f"{source}_to_{target}"
+        record = {
+            "schema_version": 1,
+            "edge_id": edge_id,
+            "source": source,
+            "target": target,
+            "attempt": attempt,
+            "label": label,
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
+            "payload": payload,
+        }
+        suffix = f"_attempt{attempt}" if attempt is not None else ""
+        if revision is not None:
+            suffix += f"_revision{revision}"
+        path = self.handoffs_dir / f"{edge_id}{suffix}.json"
+        if path.exists():
+            raise ValueError(f"handoff 已存在，拒绝覆盖：{path.name}")
+        path.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        return path
+
+    def read_handoff(self, path: Path) -> dict[str, Any]:
+        """读取并校验由上游 Agent 明确传来的 handoff。"""
+        resolved = path.resolve()
+        root = self.handoffs_dir.resolve()
+        if root not in resolved.parents or not resolved.is_file():
+            raise ValueError("handoff 路径无效")
+        try:
+            record = json.loads(resolved.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            raise ValueError(f"handoff 不是合法 JSON：{path.name}") from error
+        if not isinstance(record, dict) or record.get("schema_version") != 1:
+            raise ValueError(f"handoff schema 不兼容：{path.name}")
+        if not isinstance(record.get("payload"), dict):
+            raise ValueError(f"handoff 缺少 payload：{path.name}")
+        return record
+
+
+class SubAgent:
+    name = "subagent"
+    title = "SubAgent"
+    node_type = "model"
+
+    def __init__(self, context: RunContext) -> None:
+        self.runtime = context
+        self.base_dir = context.run_dir / "agents" / self.name
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.context_path = self.base_dir / "context.json"
+        self.context: dict[str, Any] = self.load_context()
+
+    def load_context(self) -> dict[str, Any]:
+        if not self.context_path.is_file():
+            return {}
+        try:
+            payload = json.loads(self.context_path.read_text(encoding="utf-8"))
+            return payload if isinstance(payload, dict) else {}
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def save_context(self, **updates: Any) -> None:
+        self.context.update(updates)
+        self.context_path.write_text(
+            json.dumps(self.context, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+    def check_cancel(self) -> None:
+        self.runtime.check_cancel()
+
+    def finish(self, event: dict[str, Any], status: str, **fields: Any) -> None:
+        self.runtime.finish_event(event, status, **fields)

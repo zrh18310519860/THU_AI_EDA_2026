@@ -1,0 +1,251 @@
+"""Isolate existing teacher tasks and observe candidate signals without changing tests."""
+
+import bisect
+import json
+import re
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+TEACHER = ROOT / "content/tasks/homework_rv32i5"
+INCLUDES = ("setup", "assembler", "harness", "base_alu", "base_memory",
+            "base_control", "dft", "extensions", "benchmarks")
+
+
+def teacher_tasks():
+    tasks = {}
+    for name in INCLUDES:
+        source = (TEACHER / f"tb/{name}.svh").read_text(encoding="utf-8")
+        for match in re.finditer(r"\btask\s+automatic\s+(\w+)\s*\([^;]*;.*?\bendtask\b",
+                                 source, re.DOTALL):
+            tasks[match[1]] = match[0]
+    return tasks
+
+
+def stimulus_source(name, tasks):
+    selected = [name]
+    for task in selected:
+        for child in re.findall(r"\b(build_\w+)\s*\(", tasks[task]):
+            if child in tasks and child not in selected:
+                selected.append(child)
+    return "\n\n".join(tasks[task] for task in reversed(selected))[:16000]
+
+
+def wave_events(path, prefix="tb_teacher_probe."):
+    from vcdvcd import VCDVCD
+    wave = VCDVCD(str(path))
+    refs = {}
+    for reference in wave.references_to_ids:
+        if not reference.startswith(prefix):
+            continue
+        short = reference[len(prefix):]
+        if short.startswith("dut."):
+            short = short[4:]
+        if "." not in short:
+            refs[short.split("[")[0]] = reference
+    series = {name: wave[reference].tv for name, reference in refs.items()}
+    times = {name: [time for time, _ in values] for name, values in series.items()}
+
+    def value(name, time):
+        index = bisect.bisect_right(times.get(name, []), time) - 1
+        if index < 0:
+            return None
+        raw = series[name][index][1]
+        return hex(int(raw, 2)) if re.fullmatch("[01]+", raw) else raw
+
+    groups = {
+        "retire": (r"(?:^|_)(?:retire|commit)_(?:valid|pc|insn|data|arch_rd|rd|pd|old_pd|rob_id|id|is_ecall|writes_rd|reg_valid)$",),
+        "writeback": (r"(?:^|_)wb_(?:valid|pd|data|has_dest)$", r"(?:^|_)(?:lsu_done|complete)_(?:valid|rob_id|data|pd|has_dest)$"),
+        "dispatch": (r"^(?:disp_fire|dispatch_fire|disp_accept|disp_valid|disp_ready)$", r"(?:^|_)disp_(?:pd|old_pd|ps1|ps2|rob_id)$",
+                     r"^(?:dec|fe_fetch)_(?:pc|insn|valid|rd|writes_rd)$"),
+        "memory": (r"^lsu_(?:issue_(?:valid|rob_id|is_load|is_store)|head_(?:valid|rob_id|is_store)|prf_data[12])$",
+                   r"^(?:lsu_cpu_req|dc_cpu_req|dmem)_(?:valid|ready|we|addr|wdata|be)$"),
+        "recovery": (r"^(?:squash_pulse|redirect_valid|redirect_pc|halt_pending|halted)$",),
+    }
+    names = {group: sorted(name for name in refs if any(re.search(pattern, name) for pattern in patterns))
+             for group, patterns in groups.items()}
+    for group, fields in names.items():
+        seen, unique = set(), []
+        for name in fields:
+            identifier = wave.references_to_ids[refs[name]]
+            if identifier not in seen:
+                seen.add(identifier)
+                unique.append(name)
+        names[group] = unique
+    rows = []
+    previous_halt = None
+    previous = {}
+    bus_history, violations = [], []
+    for time, clock in series.get("clk", []):
+        if clock != "1" or value("rst_n", time - 1) != "0x1":
+            if clock == "1":
+                bus_history = []
+            continue
+        bus = {name: value(name, time - 1) for name in ("imem_valid", "imem_ready", "imem_addr",
+            "dmem_valid", "dmem_ready", "dmem_addr", "dmem_we", "dmem_wdata", "dmem_be", "halted")}
+        bus["time"] = time
+        if bus_history:
+            for kind in ("imem", "dmem"):
+                before = bus_history[-1]
+                if before[kind + "_valid"] == "0x1" and before[kind + "_ready"] == "0x0":
+                    fields = [kind + "_addr"]
+                    if kind == "dmem":
+                        fields += ["dmem_we"]
+                        if before["dmem_we"] == "0x1":
+                            fields += ["dmem_wdata", "dmem_be"]
+                    if bus[kind + "_valid"] != "0x1" or any(bus[name] != before[name] for name in fields):
+                        if sum(item["bus"] == kind for item in violations) < 2:
+                            violations.append({"bus": kind, "observation": "Request withdrawn or payload changed after a stalled request edge.",
+                                               "window": bus_history[-4:] + [bus]})
+        bus_history.append(bus)
+        for group, fields in names.items():
+            values = {name: value(name, time - 1) for name in fields}
+            triggers = [name for name in fields if name.endswith("valid") or name in
+                        {"disp_fire", "dispatch_fire", "disp_accept", "squash_pulse"}]
+            if group == "recovery":
+                halt = (values.get("halted"), values.get("halt_pending"))
+                active = halt != previous_halt or values.get("redirect_valid") == "0x1" or values.get("squash_pulse") == "0x1"
+                previous_halt = halt
+            else:
+                active = any(values[name] == "0x1" for name in triggers)
+            if active:
+                payload = [values[name] for name in fields]
+                if group != "memory" or payload != previous.get(group):
+                    rows.append([time, group, *payload])
+                previous[group] = payload
+    visible = rows if len(rows) <= 160 else rows[:110] + rows[-50:]
+    return {"sampling": "DUT values immediately BEFORE each rising edge; time unit is VCD ticks. Read-only observation, no forced signals.",
+            "columns": {group: ["time", "group", *fields] for group, fields in names.items()},
+            "events": visible, "omitted_events": max(0, len(rows) - 160), "bus_violations": violations}
+
+
+def compare_retired_results(observations, checks):
+    """Separate a wrong computed value from a value lost after retirement."""
+    columns = observations.get("columns", {}).get("retire", [])
+    last = {}
+    for row in observations.get("events", []):
+        if row[1] != "retire":
+            continue
+        values = dict(zip(columns, row))
+        def field(suffix):
+            return next((value for name, value in values.items() if name.endswith(suffix)), None)
+        try:
+            insn = int(field("retire_insn"), 16)
+            rd = (insn >> 7) & 31
+            # Only instructions which architecturally write rd.
+            if rd and insn & 127 in (3, 0x13, 0x17, 0x33, 0x37, 0x67, 0x6f):
+                data = field("retire_data")
+                if data is not None:
+                    last[rd] = {"time": row[0], "pc": field("retire_pc"), "retired_data": data,
+                                "physical_destination": field("retire_pd")}
+        except (TypeError, ValueError):
+            continue
+    findings = []
+    for line in checks:
+        match = re.search(r"\bx(\d+)\b.*?0x([0-9a-fA-F]{8}).*?0x([0-9a-fA-F]{8})", line)
+        if match and int(match[1]) in last:
+            observed = last[int(match[1])]
+            try:
+                if int(observed["retired_data"], 16) == int(match[2], 16) != int(match[3], 16):
+                    findings.append({"register": "x" + match[1], **observed,
+                        "final_debug_value": "0x" + match[3],
+                        "observation": "The last observed retired result agrees with the teacher expectation, but the later architectural debug read differs. Computation and final committed-state retention must be distinguished."})
+            except ValueError:
+                continue
+    return findings
+
+
+def run_smoke_probe(sources, out):
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    wrapper = out / "probe.sv"
+    wrapper.write_text('module tb_teacher_probe; tb_l3_smoke child(); initial begin\n'
+        f'$dumpfile("{out / "signals.vcd"}"); $dumpvars(1,child); $dumpvars(1,child.dut);\n'
+        'end endmodule\n', encoding="utf-8")
+    compiled = subprocess.run(["iverilog", "-g2012", "-DRV32I_FEATURE_PORTS", "-I", str(TEACHER),
+        "-s", "tb_teacher_probe", "-o", str(out / "probe.vvp"), str(wrapper),
+        str(ROOT / "verification/l3_smoke_tb.sv"), *map(str, sources)], capture_output=True, text=True, timeout=30)
+    (out / "compile.log").write_text(compiled.stdout + compiled.stderr)
+    result = {"testcase": "l3_smoke", "stimulus_source": (ROOT / "verification/l3_smoke_tb.sv").read_text(),
+              "provenance": "Read-only VCD of the exact smoke program and both wait modes; not the independent DFT program."}
+    if compiled.returncode:
+        result.update(available=False, reason=compiled.stderr[-1200:])
+    else:
+        try:
+            ran = subprocess.run(["vvp", "-i", str(out / "probe.vvp")], capture_output=True, text=True, timeout=15)
+            output = ran.stdout + ran.stderr
+            result["available"] = True
+        except subprocess.TimeoutExpired as error:
+            output = error.stdout or b""
+            if isinstance(output, bytes):
+                output = output.decode("utf-8", "replace")
+            result.update(available=True, timed_out=True)
+        (out / "probe.log").write_text(output, encoding="utf-8")
+        result["checks"] = [line for line in output.splitlines() if line.startswith("CHECK:")][:12]
+        try:
+            result["observations"] = wave_events(out / "signals.vcd", "tb_teacher_probe.child.")
+            result["retirement_vs_final_state"] = compare_retired_results(result["observations"], result["checks"])
+        except (ImportError, OSError, ValueError) as error:
+            result["observation_error"] = str(error)
+    (out / "summary.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    return result
+
+
+def run_failure_probes(sources, checks, out, limit=2):
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    tasks = teacher_tasks()
+    selected = []
+    for check in checks:
+        name = str(check.get("name", ""))
+        task = "test_" + name
+        if task not in tasks:
+            task = next((key for key, body in tasks.items()
+                         if re.search(r'begin_test\("' + re.escape(name) + r'"\)', body)), task)
+        if task in tasks and task not in selected:
+            selected.append(task)
+        if len(selected) == limit:
+            break
+    results = []
+    for task in selected:
+        case = out / task
+        case.mkdir(exist_ok=True)
+        source = case / "probe.sv"
+        source.write_text('`timescale 1ns/1ps\nmodule tb_teacher_probe;\n' +
+            "\n".join(f'`include "tb/{name}.svh"' for name in INCLUDES) +
+            '\ninitial begin\n cur_test="probe"; dbg_reg_addr=0;\n'
+            f' $dumpfile("{case / "signals.vcd"}"); $dumpvars(1,tb_teacher_probe); $dumpvars(1,dut);\n'
+            f' #1; detect_capabilities(); {task}();\n'
+            ' $display("PROBE_RESULT|failures=%0d|checks=%0d",failures,checks_run); $finish;\nend\nendmodule\n', encoding="utf-8")
+        compiled = subprocess.run(["iverilog", "-g2012", "-DRV32I_FEATURE_PORTS", "-I", str(TEACHER),
+            "-s", "tb_teacher_probe", "-o", str(case / "probe.vvp"), str(source), *map(str, sources)],
+            capture_output=True, text=True, timeout=30)
+        (case / "compile.log").write_text(compiled.stdout + compiled.stderr)
+        names = re.findall(r'begin_test\("([^"]+)"\)', tasks[task])
+        result = {"testcase": next((str(item.get("name")) for item in checks
+                                     if str(item.get("name")) in names), task[5:]),
+                  "invoked_teacher_task": task, "stimulus_source": stimulus_source(task, tasks),
+                  "provenance": "Calls the unchanged teacher task in isolation; diagnostic only. Full teacher TB remains the acceptance gate."}
+        if compiled.returncode:
+            result.update(available=False, reason=compiled.stderr[-1200:])
+        else:
+            try:
+                ran = subprocess.run(["vvp", "-i", str(case / "probe.vvp")], capture_output=True,
+                                     text=True, timeout=15)
+                output = ran.stdout + ran.stderr
+                result["available"] = True
+            except subprocess.TimeoutExpired as error:
+                output = error.stdout or b""
+                if isinstance(output, bytes):
+                    output = output.decode("utf-8", "replace")
+                result.update(available=True, timed_out=True)
+            (case / "probe.log").write_text(output, encoding="utf-8")
+            result["checks"] = [line for line in output.splitlines() if line.startswith(("CHECK:", "PROBE_RESULT|"))][:12]
+            try:
+                result["observations"] = wave_events(case / "signals.vcd")
+                result["retirement_vs_final_state"] = compare_retired_results(result["observations"], result["checks"])
+            except (ImportError, OSError, ValueError) as error:
+                result["observation_error"] = str(error)
+        (case / "summary.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+        results.append(result)
+    return results
